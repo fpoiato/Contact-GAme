@@ -23,7 +23,7 @@ phases:
   build:
     commands:
       - echo "Deploying CDK stack..."
-      - cd infra/cdk && npm run deploy 2>&1 | tee /tmp/cdk-output.txt
+      - (cd infra/cdk && npm run deploy) 2>&1 | tee /tmp/cdk-output.txt
       - export WS_URL=$(grep -o 'wss://[^ ]*' /tmp/cdk-output.txt | head -1)
       - echo "WebSocket URL=$WS_URL"
       - aws ssm put-parameter --name "/contact-game/prod/websocket_url" --type String --value "$WS_URL" --overwrite
@@ -43,7 +43,8 @@ phases:
       - terraform apply -auto-approve -input=false -var="websocket_url=$WS_URL"
       - export BUCKET=$(terraform output -raw s3_bucket_name)
       - export CF_ID=$(terraform output -raw cloudfront_distribution_id)
-      - aws s3 sync ../../frontend/contact-app/dist/contact-app/browser s3://$BUCKET --delete
+      - cd ../..
+      - aws s3 sync frontend/contact-app/dist/contact-app/browser s3://$BUCKET --delete
       - aws cloudfront create-invalidation --distribution-id $CF_ID --paths "/*"
   post_build:
     commands:
