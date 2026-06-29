@@ -1,0 +1,62 @@
+<div class="mx-auto flex min-h-full max-w-md flex-col gap-5 p-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-black">{{ 'LOBBY_TITLE' | translate }}</h1>
+      <p class="text-yellow-bright">{{ 'ROOM' | translate }}: {{ roomCode }}</p>
+    </div>
+    <app-language-toggle />
+  </div>
+
+  <div class="card">
+    <h2 class="mb-3 text-xl font-bold">{{ 'PLAYERS' | translate }} ({{ players.length }})</h2>
+    <ul class="flex flex-col gap-2">
+      @for (player of players; track player.connectionId) {
+        <li class="flex items-center justify-between rounded-xl bg-white/10 px-4 py-2">
+          <span class="font-semibold">{{ player.nickname }}</span>
+          <span class="text-sm text-yellow-bright">
+            @if (player.isHost) { {{ 'HOST' | translate }} }
+          </span>
+        </li>
+      }
+    </ul>
+  </div>
+
+  @if (isHost && pending.length > 0) {
+    <div class="card border-2 border-yellow-bright/50">
+      <h2 class="mb-3 text-xl font-bold">{{ 'PENDING_APPROVALS' | translate }}</h2>
+      @for (p of pending; track p.connectionId) {
+        <div class="mb-2 flex items-center justify-between rounded-xl bg-white/10 px-4 py-2">
+          <span>{{ p.nickname }}</span>
+          <div class="flex gap-2">
+            <button type="button" class="btn-secondary px-3 py-1 text-sm" (click)="approve(p.connectionId)">
+              {{ 'APPROVE' | translate }}
+            </button>
+            <button type="button" class="btn-danger px-3 py-1 text-sm" (click)="reject(p.connectionId)">
+              {{ 'REJECT' | translate }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="flex flex-col gap-3">
+    <button type="button" class="btn-secondary" (click)="copyLink()">
+      {{ copied ? ('LINK_COPIED' | translate) : ('COPY_LINK' | translate) }}
+    </button>
+    <button type="button" class="btn-secondary" (click)="shareWhatsApp()">
+      {{ 'SHARE_WHATSAPP' | translate }}
+    </button>
+  </div>
+
+  @if (isHost) {
+    <button type="button" class="btn-primary mt-auto" [disabled]="!canStart()" (click)="startGame()">
+      {{ 'START_GAME' | translate }}
+    </button>
+    @if (!canStart()) {
+      <p class="text-center text-sm text-white/70">{{ 'MIN_PLAYERS' | translate }}</p>
+    }
+  } @else {
+    <p class="mt-auto text-center text-lg text-white/80">{{ 'WAITING_HOST' | translate }}</p>
+  }
+</div>

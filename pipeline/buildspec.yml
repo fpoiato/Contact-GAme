@@ -1,0 +1,53 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "Installing Terraform and CDK CLI..."
+      - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+      - unzip -o /tmp/terraform.zip -d /usr/local/bin/
+      - terraform version
+      - npm install -g aws-cdk
+      - cdk --version
+  pre_build:
+    commands:
+      - echo "Installing project dependencies..."
+      - cd infra/cdk && npm ci
+      - cd ../../frontend/contact-app && npm ci
+      - export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+      - export CDK_DEFAULT_REGION=${AWS_REGION}
+  build:
+    commands:
+      - echo "Deploying CDK stack..."
+      - cd infra/cdk && npm run deploy 2>&1 | tee /tmp/cdk-output.txt
+      - export WS_URL=$(grep -o 'wss://[^ ]*' /tmp/cdk-output.txt | head -1)
+      - echo "WebSocket URL=$WS_URL"
+      - aws ssm put-parameter --name "/contact-game/prod/websocket_url" --type String --value "$WS_URL" --overwrite
+      - echo "Building Angular frontend..."
+      - |
+        cat > frontend/contact-app/src/environments/environment.prod.ts <<EOF
+        export const environment = {
+          production: true,
+          wsUrl: '${WS_URL}',
+          appUrl: '${APP_URL}',
+        };
+        EOF
+      - cd frontend/contact-app && npm run build
+      - echo "Applying Terraform..."
+      - cd ../../infra/terraform
+      - terraform init -input=false
+      - terraform apply -auto-approve -input=false -var="websocket_url=$WS_URL"
+      - export BUCKET=$(terraform output -raw s3_bucket_name)
+      - export CF_ID=$(terraform output -raw cloudfront_distribution_id)
+      - aws s3 sync ../../frontend/contact-app/dist/contact-app/browser s3://$BUCKET --delete
+      - aws cloudfront create-invalidation --distribution-id $CF_ID --paths "/*"
+  post_build:
+    commands:
+      - echo "Deployment complete at ${APP_URL}"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: frontend/contact-app/dist/contact-app/browser

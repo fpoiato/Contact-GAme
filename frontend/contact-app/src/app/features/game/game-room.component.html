@@ -1,0 +1,120 @@
+<div class="relative mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-black">{{ 'APP_TITLE' | translate }}</h1>
+      <p class="text-sm text-yellow-bright">{{ roomCode }} · R{{ state?.currentRound ?? 1 }}</p>
+    </div>
+    <app-language-toggle />
+  </div>
+
+  @if (state) {
+    <div class="card text-center">
+      <p class="text-sm uppercase tracking-wide text-white/70">{{ 'REVEALED' | translate }}</p>
+      <p class="text-5xl font-black tracking-widest text-yellow-bright">{{ displayPrefix || '?' }}</p>
+      <p class="mt-2 text-sm">
+        @if (isClueGiver) {
+          {{ 'YOUR_ROLE_CLUE_GIVER' | translate }}
+        } @else {
+          {{ 'YOUR_ROLE_GUESSER' | translate }}
+        }
+      </p>
+    </div>
+
+    @if (state.phase === 'WORD_SETUP' && isClueGiver) {
+      <div class="card flex flex-col gap-3">
+        <label class="font-semibold">{{ 'SECRET_WORD' | translate }}</label>
+        <input
+          class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+          [(ngModel)]="secretWordInput"
+          [placeholder]="'SECRET_WORD_HINT' | translate"
+          maxlength="12"
+        />
+        <button type="button" class="btn-primary" (click)="setWord()">{{ 'SET_WORD' | translate }}</button>
+      </div>
+    }
+
+    @if (state.phase === 'WORD_SETUP' && !isClueGiver) {
+      <p class="card text-center text-white/80">{{ 'WAITING_HOST' | translate }}</p>
+    }
+
+    @if (state.activeClue && state.phase !== 'WORD_SETUP') {
+      <div class="card">
+        <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ state.activeClue.authorNickname }}</p>
+        <p class="mt-1 text-lg font-semibold">"{{ state.activeClue.text }}"</p>
+      </div>
+    }
+
+    @if (state.phase === 'CLUE_PHASE' && isGuesser && !state.activeClue) {
+      <button type="button" class="btn-secondary w-full" (click)="openClue()">{{ 'CREATE_CLUE' | translate }}</button>
+    }
+
+    @if (state.phase === 'CLUE_PHASE' && isGuesser && state.activeClue) {
+      <button type="button" class="animate-bounceBtn btn-primary w-full py-6 text-3xl" (click)="contact()">
+        {{ 'CONTACT' | translate }}
+      </button>
+    }
+
+    @if (canBlock()) {
+      <div class="card flex flex-col gap-2 border-2 border-coral">
+        <label>{{ 'BLOCK_WORD' | translate }}</label>
+        <input
+          class="rounded-xl bg-white/90 px-4 py-3 text-purple-900"
+          [(ngModel)]="blockWord"
+          [placeholder]="'BLOCK_PLACEHOLDER' | translate"
+          (keyup.enter)="block()"
+        />
+        <button type="button" class="btn-danger" (click)="block()">{{ 'BLOCK' | translate }}</button>
+      </div>
+    }
+
+    @if (state.phase === 'MATCH_VOTE') {
+      <div class="card flex flex-col gap-3 text-center">
+        <h2 class="text-xl font-bold">{{ 'MATCH_VOTE_TITLE' | translate }}</h2>
+        @if (!hasVoted) {
+          <div class="flex gap-3">
+            <button type="button" class="btn-secondary flex-1" (click)="vote(true)">{{ 'VOTE_YES' | translate }}</button>
+            <button type="button" class="btn-danger flex-1" (click)="vote(false)">{{ 'VOTE_NO' | translate }}</button>
+          </div>
+        } @else {
+          <p class="text-white/70">{{ 'WAITING_VOTES' | translate }}</p>
+        }
+      </div>
+    }
+
+    @if (state.phase === 'ROUND_COMPLETE') {
+      <p class="card text-center text-xl font-bold text-mint">{{ 'ROUND_COMPLETE' | translate }}</p>
+    }
+  }
+
+  @if (clueInputOpen) {
+    <div class="overlay">
+      <div class="card w-full max-w-sm flex flex-col gap-3">
+        <p class="font-bold">{{ 'CREATE_CLUE' | translate }}</p>
+        @if (clueSeconds !== null) {
+          <p class="text-yellow-bright">{{ 'CLUE_TIMER' | translate: { seconds: clueSeconds } }}</p>
+        }
+        <textarea
+          class="min-h-24 rounded-xl bg-white/90 p-3 text-purple-900"
+          [(ngModel)]="clueText"
+          [placeholder]="'CLUE_PLACEHOLDER' | translate"
+        ></textarea>
+        <button type="button" class="btn-primary" (click)="submitClue()">{{ 'SUBMIT_CLUE' | translate }}</button>
+      </div>
+    </div>
+  }
+
+  @if (contactCount !== null && contactCount >= 0) {
+    <div class="overlay">
+      <div class="text-center">
+        <p class="mb-4 text-xl font-bold">{{ 'COUNTDOWN_ACTIVE' | translate }}</p>
+        <p class="text-8xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
+      </div>
+    </div>
+  }
+
+  @if (overlay) {
+    <div class="overlay">
+      <p class="text-center text-4xl font-black text-yellow-bright">{{ overlayMessage() | translate }}</p>
+    </div>
+  }
+</div>

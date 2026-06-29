@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  @apply bg-gradient-to-br from-purple-electric via-indigo-600 to-purple-900 text-white antialiased;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+input,
+button,
+textarea {
+  font-size: 16px;
+}
+
+.btn-primary {
+  @apply min-h-12 rounded-2xl bg-yellow-bright px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95;
+}
+
+.btn-secondary {
+  @apply min-h-12 rounded-2xl bg-mint px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95;
+}
+
+.btn-danger {
+  @apply min-h-12 rounded-2xl bg-coral px-6 py-3 text-lg font-bold text-white shadow-lg transition active:scale-95;
+}
+
+.card {
+  @apply rounded-3xl bg-white/10 p-5 shadow-xl backdrop-blur;
+}
+
+.overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4;
+}

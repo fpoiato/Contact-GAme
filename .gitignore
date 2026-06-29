@@ -1,0 +1,13 @@
+node_modules/
+dist/
+cdk.out/
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+.env
+terraform.tfvars
+.DS_Store
+*.log
+cdk-deploy-output.txt
+terraform-apply-output.txt

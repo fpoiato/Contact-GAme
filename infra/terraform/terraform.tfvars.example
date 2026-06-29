@@ -1,0 +1,14 @@
+aws_region   = "us-east-1"
+project_name = "contact-game"
+environment  = "prod"
+domain_name  = "contact.fpoiato.com"
+
+github_owner = "fpoiato_milos"
+github_repo  = "Contact-GAme"
+github_branch = "main"
+
+codestar_connection_arn = "arn:aws:codestar-connections:us-east-1:986873053420:connection/69600f12-ec9d-4750-8e2f-ca6cf7b45ade"
+route53_zone_id         = "Z094351536ZBINA5SU45F"
+
+# Set after first CDK deploy, or leave empty for initial terraform apply:
+# websocket_url = "wss://..."

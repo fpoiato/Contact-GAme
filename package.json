@@ -1,0 +1,15 @@
+{
+  "name": "contact-game",
+  "private": true,
+  "workspaces": [
+    "frontend/contact-app",
+    "infra/cdk"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace=frontend/contact-app",
+    "build": "npm run build --workspace=frontend/contact-app",
+    "cdk:deploy": "npm run deploy --workspace=infra/cdk",
+    "cdk:synth": "npm run synth --workspace=infra/cdk",
+    "test": "npm run test --workspace=infra/cdk"
+  }
+}
