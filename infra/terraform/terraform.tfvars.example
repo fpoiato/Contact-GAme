@@ -3,7 +3,7 @@ project_name = "contact-game"
 environment  = "prod"
 domain_name  = "contact.fpoiato.com"
 
-github_owner = "fpoiato_milos"
+github_owner = "fpoiato"
 github_repo  = "Contact-GAme"
 github_branch = "main"
 

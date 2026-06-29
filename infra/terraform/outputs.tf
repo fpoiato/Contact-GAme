@@ -25,3 +25,12 @@ output "codepipeline_name" {
 output "acm_certificate_arn" {
   value = aws_acm_certificate.frontend.arn
 }
+
+output "codestar_connection_arn" {
+  value       = aws_codestarconnections_connection.github.arn
+  description = "Complete GitHub authorization in AWS Console (Developer Tools > Connections), then retry the pipeline."
+}
+
+output "codestar_connection_status" {
+  value = aws_codestarconnections_connection.github.connection_status
+}

@@ -1,0 +1,39 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - apt-get update && apt-get install -y unzip
+      - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+      - unzip -o /tmp/terraform.zip -d /usr/local/bin/
+      - npm install -g aws-cdk
+  pre_build:
+    commands:
+      - git clone --depth 1 --branch main https://x-access-token:${GITHUB_TOKEN}@github.com/fpoiato/Contact-GAme.git src
+      - cd src
+      - cd infra/cdk && npm ci
+      - cd ../../frontend/contact-app && npm ci
+      - export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+      - export CDK_DEFAULT_REGION=${AWS_REGION}
+  build:
+    commands:
+      - cd src/infra/cdk && npm run deploy 2>&1 | tee /tmp/cdk-output.txt
+      - export WS_URL=$(grep -o 'wss://[^ ]*' /tmp/cdk-output.txt | head -1)
+      - aws ssm put-parameter --name "/contact-game/prod/websocket_url" --type String --value "$WS_URL" --overwrite
+      - |
+        cat > src/frontend/contact-app/src/environments/environment.prod.ts <<EOF
+        export const environment = {
+          production: true,
+          wsUrl: '${WS_URL}',
+          appUrl: '${APP_URL}',
+        };
+        EOF
+      - cd src/frontend/contact-app && npm run build
+      - cd ../../infra/terraform && terraform init -input=false
+      - terraform apply -auto-approve -input=false -var="websocket_url=$WS_URL"
+      - export BUCKET=$(terraform output -raw s3_bucket_name)
+      - export CF_ID=$(terraform output -raw cloudfront_distribution_id)
+      - aws s3 sync ../../frontend/contact-app/dist/contact-app/browser s3://$BUCKET --delete
+      - aws cloudfront create-invalidation --distribution-id $CF_ID --paths "/*"

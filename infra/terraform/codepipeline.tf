@@ -136,7 +136,7 @@ resource "aws_codepipeline" "contact" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = var.codestar_connection_arn
+        ConnectionArn    = aws_codestarconnections_connection.github.arn
         FullRepositoryId = "${var.github_owner}/${var.github_repo}"
         BranchName       = var.github_branch
       }
@@ -196,7 +196,7 @@ resource "aws_iam_role_policy" "codepipeline" {
       {
         Effect   = "Allow"
         Action   = ["codestar-connections:UseConnection"]
-        Resource = var.codestar_connection_arn
+        Resource = aws_codestarconnections_connection.github.arn
       }
     ]
   })

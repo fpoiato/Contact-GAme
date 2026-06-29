@@ -31,7 +31,7 @@ variable "route53_zone_id" {
 
 variable "github_owner" {
   type    = string
-  default = "fpoiato_milos"
+  default = "fpoiato"
 }
 
 variable "github_repo" {
