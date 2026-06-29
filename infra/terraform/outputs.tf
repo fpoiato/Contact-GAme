@@ -27,10 +27,10 @@ output "acm_certificate_arn" {
 }
 
 output "codestar_connection_arn" {
-  value       = aws_codestarconnections_connection.github.arn
-  description = "Complete GitHub authorization in AWS Console (Developer Tools > Connections), then retry the pipeline."
+  value       = data.aws_codestarconnections_connection.github.arn
+  description = "CodeStar connection used for GitHub source."
 }
 
 output "codestar_connection_status" {
-  value = aws_codestarconnections_connection.github.connection_status
+  value = data.aws_codestarconnections_connection.github.connection_status
 }
