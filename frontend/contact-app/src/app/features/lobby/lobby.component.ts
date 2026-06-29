@@ -43,20 +43,13 @@ export class LobbyComponent implements OnInit, OnDestroy {
         }
       })
     );
-    this.roomService.players$.subscribe((p) => (this.players = p));
-    this.roomService.pending$.subscribe((p) => (this.pending = p));
-    this.roomService.room$.subscribe((r) => {
-      this.isHost = r?.isHost ?? false;
-      if (r && this.players.length === 0 && r.isHost) {
-        this.players = [{
-          connectionId: r.connectionId,
-          nickname: r.nickname,
-          isHost: true,
-          joinOrder: 0,
-          status: 'approved',
-        }];
-      }
-    });
+    this.sub.add(this.roomService.players$.subscribe((p) => (this.players = p)));
+    this.sub.add(this.roomService.pending$.subscribe((p) => (this.pending = p)));
+    this.sub.add(
+      this.roomService.room$.subscribe((r) => {
+        this.isHost = r?.isHost ?? false;
+      })
+    );
   }
 
   ngOnDestroy(): void {

@@ -31,6 +31,7 @@ export class RoomService {
 
   async createRoom(nickname: string): Promise<string> {
     await this.ws.connect();
+    this.reset();
     this.ws.send('CREATE_ROOM', { nickname });
     return new Promise((resolve, reject) => {
       const sub = this.ws.onAction<{ roomCode: string; connectionId: string; isHost: boolean }>('ROOM_CREATED').subscribe({
@@ -41,6 +42,15 @@ export class RoomService {
             isHost: payload.isHost,
             connectionId: payload.connectionId,
           });
+          this.playersSubject.next([
+            {
+              connectionId: payload.connectionId,
+              nickname,
+              isHost: true,
+              joinOrder: 0,
+              status: 'approved',
+            },
+          ]);
           sub.unsubscribe();
           resolve(payload.roomCode);
         },
@@ -55,6 +65,7 @@ export class RoomService {
 
   async joinRoom(nickname: string, roomCode: string): Promise<void> {
     await this.ws.connect();
+    this.reset();
     this.ws.send('JOIN_ROOM', { nickname, roomCode: roomCode.toUpperCase() });
     return new Promise((resolve, reject) => {
       const pendingSub = this.ws.onAction<{ roomCode: string; connectionId: string; pending?: boolean }>('JOIN_PENDING').subscribe((payload) => {
@@ -65,6 +76,15 @@ export class RoomService {
             isHost: false,
             connectionId: payload.connectionId,
           });
+          this.playersSubject.next([
+            {
+              connectionId: payload.connectionId,
+              nickname,
+              isHost: false,
+              joinOrder: -1,
+              status: 'approved',
+            },
+          ]);
           pendingSub.unsubscribe();
           resolve();
         }
