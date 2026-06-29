@@ -22,6 +22,7 @@
   "YOU_ARE_HOST": "You are the host",
   "SECRET_WORD": "Secret word",
   "SECRET_WORD_HINT": "Letters only, 4–12 characters",
+  "SECRET_WORD_INVALID": "Use {{min}}–{{max}} letters only (no spaces, numbers, or symbols)",
   "SET_WORD": "Set Word",
   "REVEALED": "Revealed",
   "YOUR_ROLE_CLUE_GIVER": "You are the Clue Giver",

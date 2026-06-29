@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
-import { GameState } from '../../core/models/ws-types';
+import { GameState, isValidSecretWord, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
@@ -74,7 +74,19 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     return this.gameEngine.getDisplayPrefix();
   }
 
+  readonly secretWordMin = SECRET_WORD_MIN;
+  readonly secretWordMax = SECRET_WORD_MAX;
+
+  get secretWordValid(): boolean {
+    return isValidSecretWord(this.secretWordInput.trim());
+  }
+
+  get showSecretWordError(): boolean {
+    return this.secretWordInput.trim().length > 0 && !this.secretWordValid;
+  }
+
   setWord(): void {
+    if (!this.secretWordValid) return;
     this.gameEngine.setSecretWord(this.secretWordInput);
     this.secretWordInput = '';
   }

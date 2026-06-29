@@ -22,6 +22,7 @@
   "YOU_ARE_HOST": "Você é o host",
   "SECRET_WORD": "Palavra secreta",
   "SECRET_WORD_HINT": "Somente letras, 4–12 caracteres",
+  "SECRET_WORD_INVALID": "Use {{min}}–{{max}} letras apenas (sem espaços, números ou símbolos)",
   "SET_WORD": "Definir Palavra",
   "REVEALED": "Revelado",
   "YOUR_ROLE_CLUE_GIVER": "Você é o Dador de Dicas",

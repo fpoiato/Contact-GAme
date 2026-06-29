@@ -25,11 +25,30 @@
         <label class="font-semibold">{{ 'SECRET_WORD' | translate }}</label>
         <input
           class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+          [class.ring-2]="showSecretWordError"
+          [class.ring-coral]="showSecretWordError"
           [(ngModel)]="secretWordInput"
           [placeholder]="'SECRET_WORD_HINT' | translate"
-          maxlength="12"
+          [maxlength]="secretWordMax"
+          (keyup.enter)="setWord()"
+          autocapitalize="characters"
+          autocomplete="off"
         />
-        <button type="button" class="btn-primary" (click)="setWord()">{{ 'SET_WORD' | translate }}</button>
+        @if (showSecretWordError) {
+          <p class="text-sm text-coral">
+            {{ 'SECRET_WORD_INVALID' | translate: { min: secretWordMin, max: secretWordMax } }}
+          </p>
+        } @else {
+          <p class="text-sm text-white/60">{{ 'SECRET_WORD_HINT' | translate }}</p>
+        }
+        <button
+          type="button"
+          class="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+          (click)="setWord()"
+          [disabled]="!secretWordValid"
+        >
+          {{ 'SET_WORD' | translate }}
+        </button>
       </div>
     }
 
