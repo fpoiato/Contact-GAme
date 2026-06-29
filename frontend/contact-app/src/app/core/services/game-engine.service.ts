@@ -398,18 +398,22 @@ export class GameEngineService implements OnDestroy {
   }
 
   private startContactCountdown(): void {
-    this.contactCountSubject.next(CONTACT_COUNTDOWN_SECONDS);
     this.tickSub?.unsubscribe();
+    this.contactCountSubject.next(CONTACT_COUNTDOWN_SECONDS);
     this.tickSub = interval(1000).subscribe(() => {
-      const state = this.state;
-      if (!state?.contactDeadline) return;
-      const remaining = Math.ceil((state.contactDeadline - Date.now()) / 1000);
-      if (remaining > 0) {
-        this.contactCountSubject.next(remaining);
-      } else {
+      const current = this.contactCountSubject.value;
+      if (current === null || this.state?.phase !== 'CONTACT_COUNTDOWN') {
+        this.tickSub?.unsubscribe();
+        this.tickSub = null;
+        return;
+      }
+      if (current <= 1) {
         this.contactCountSubject.next(0);
         this.tickSub?.unsubscribe();
+        this.tickSub = null;
         if (this.isHost) this.startMatchVote();
+      } else {
+        this.contactCountSubject.next(current - 1);
       }
     });
   }
@@ -436,9 +440,14 @@ export class GameEngineService implements OnDestroy {
   }
 
   private syncTimersFromState(state: GameState): void {
-    if (state.phase === 'CONTACT_COUNTDOWN' && state.contactDeadline) {
-      const remaining = Math.ceil((state.contactDeadline - Date.now()) / 1000);
-      this.contactCountSubject.next(Math.max(remaining, 0));
+    if (state.phase === 'CONTACT_COUNTDOWN') {
+      if (this.contactCountSubject.value === null) {
+        this.startContactCountdown();
+      }
+    } else {
+      this.tickSub?.unsubscribe();
+      this.tickSub = null;
+      this.contactCountSubject.next(null);
     }
   }
 
