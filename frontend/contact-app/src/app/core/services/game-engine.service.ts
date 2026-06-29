@@ -65,18 +65,25 @@ export class GameEngineService implements OnDestroy {
   }
 
   setSecretWord(word: string): void {
-    if (!this.isHost) return;
     const state = this.state;
-    if (!state || state.phase !== 'WORD_SETUP') return;
+    const room = this.roomService.room;
+    if (!state || !room || state.phase !== 'WORD_SETUP') return;
+    if (this.myId !== state.clueGiverId) return;
     const normalized = word.trim().toUpperCase();
     if (!isValidSecretWord(normalized)) return;
-    if (this.myId !== state.clueGiverId) return;
 
-    state.secretWord = normalized;
-    state.revealedPrefix = normalized[0];
-    state.phase = 'CLUE_PHASE';
-    state.activeClue = undefined;
-    this.setStateAndRelay('SECRET_WORD_SET', state);
+    if (this.isHost) {
+      state.secretWord = normalized;
+      state.revealedPrefix = normalized[0];
+      state.phase = 'CLUE_PHASE';
+      state.activeClue = undefined;
+      this.setStateAndRelay('SECRET_WORD_SET', state);
+    } else {
+      this.ws.send('FORWARD_TO_HOST', {
+        actionType: 'SECRET_WORD_SET',
+        secretWord: normalized,
+      }, room.roomCode);
+    }
   }
 
   openClueInput(): void {
@@ -273,6 +280,18 @@ export class GameEngineService implements OnDestroy {
     if (!state) return;
 
     switch (action['actionType']) {
+      case 'SECRET_WORD_SET': {
+        if (state.phase !== 'WORD_SETUP') return;
+        if (action['senderId'] !== state.clueGiverId) return;
+        const normalized = String(action['secretWord'] ?? '').toUpperCase();
+        if (!isValidSecretWord(normalized)) return;
+        state.secretWord = normalized;
+        state.revealedPrefix = normalized[0];
+        state.phase = 'CLUE_PHASE';
+        state.activeClue = undefined;
+        this.setStateAndRelay('SECRET_WORD_SET', state);
+        break;
+      }
       case 'CLUE_SUBMITTED':
         state.activeClue = {
           authorId: action['authorId'] as string,
