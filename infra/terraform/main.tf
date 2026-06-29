@@ -1,6 +1,12 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  backend "s3" {
+    bucket = "contact-game-terraform-state-986873053420"
+    key    = "contact-game/terraform.tfstate"
+    region = "us-east-1"
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"

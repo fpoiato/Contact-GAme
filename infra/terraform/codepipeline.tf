@@ -85,6 +85,8 @@ resource "aws_iam_role_policy" "codebuild" {
           "${aws_s3_bucket.pipeline_artifacts.arn}/*",
           aws_s3_bucket.frontend.arn,
           "${aws_s3_bucket.frontend.arn}/*",
+          "arn:aws:s3:::contact-game-terraform-state-986873053420",
+          "arn:aws:s3:::contact-game-terraform-state-986873053420/*",
         ]
       },
       {
