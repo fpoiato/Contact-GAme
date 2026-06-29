@@ -31,3 +31,15 @@ resource "aws_ssm_parameter" "app_url" {
   type  = "String"
   value = "https://${var.domain_name}"
 }
+
+resource "aws_ssm_parameter" "s3_bucket_name" {
+  name  = "/${var.project_name}/${var.environment}/s3_bucket_name"
+  type  = "String"
+  value = aws_s3_bucket.frontend.id
+}
+
+resource "aws_ssm_parameter" "cloudfront_distribution_id" {
+  name  = "/${var.project_name}/${var.environment}/cloudfront_distribution_id"
+  type  = "String"
+  value = aws_cloudfront_distribution.frontend.id
+}

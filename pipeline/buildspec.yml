@@ -5,10 +5,7 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
-      - echo "Installing Terraform and CDK CLI..."
-      - curl -sLo /tmp/terraform.zip https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
-      - unzip -o /tmp/terraform.zip -d /usr/local/bin/
-      - terraform version
+      - echo "Installing CDK CLI..."
       - npm install -g aws-cdk
       - cdk --version
   pre_build:
@@ -37,13 +34,8 @@ phases:
         };
         EOF
       - npm run build --workspace=frontend/contact-app
-      - echo "Applying Terraform..."
-      - cd infra/terraform
-      - terraform init -input=false
-      - terraform apply -auto-approve -input=false -var="websocket_url=$WS_URL"
-      - export BUCKET=$(terraform output -raw s3_bucket_name)
-      - export CF_ID=$(terraform output -raw cloudfront_distribution_id)
-      - cd ../..
+      - export BUCKET=$(aws ssm get-parameter --name /contact-game/prod/s3_bucket_name --query Parameter.Value --output text)
+      - export CF_ID=$(aws ssm get-parameter --name /contact-game/prod/cloudfront_distribution_id --query Parameter.Value --output text)
       - aws s3 sync frontend/contact-app/dist/contact-app/browser s3://$BUCKET --delete
       - aws cloudfront create-invalidation --distribution-id $CF_ID --paths "/*"
   post_build:
