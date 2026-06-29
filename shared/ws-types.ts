@@ -135,10 +135,12 @@ export function generateRoomCode(): string {
 }
 
 export function isValidSecretWord(word: string): boolean {
+  const trimmed = word.trim();
+  const length = [...trimmed].length;
   return (
-    word.length >= SECRET_WORD_MIN &&
-    word.length <= SECRET_WORD_MAX &&
-    /^[A-Za-z]+$/.test(word)
+    length >= SECRET_WORD_MIN &&
+    length <= SECRET_WORD_MAX &&
+    /^\p{L}+$/u.test(trimmed)
   );
 }
 

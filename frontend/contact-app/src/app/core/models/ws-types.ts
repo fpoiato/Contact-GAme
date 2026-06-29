@@ -105,10 +105,12 @@ export const SECRET_WORD_MIN = 4;
 export const SECRET_WORD_MAX = 12;
 
 export function isValidSecretWord(word: string): boolean {
+  const trimmed = word.trim();
+  const length = [...trimmed].length;
   return (
-    word.length >= SECRET_WORD_MIN &&
-    word.length <= SECRET_WORD_MAX &&
-    /^[A-Za-z]+$/.test(word)
+    length >= SECRET_WORD_MIN &&
+    length <= SECRET_WORD_MAX &&
+    /^\p{L}+$/u.test(trimmed)
   );
 }
 
