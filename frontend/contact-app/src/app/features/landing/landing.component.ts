@@ -19,13 +19,25 @@ export class LandingComponent implements OnInit {
   roomCode = '';
   loading = false;
   error = '';
+  joinMode = false;
 
   ngOnInit(): void {
     const params = new URLSearchParams(window.location.search);
     const room = params.get('room');
     if (room) {
       this.roomCode = room.toUpperCase().slice(0, 5);
+      this.joinMode = true;
     }
+  }
+
+  showJoin(): void {
+    this.joinMode = true;
+    this.error = '';
+  }
+
+  cancelJoin(): void {
+    this.joinMode = false;
+    this.error = '';
   }
 
   async createGame(): Promise<void> {

@@ -6,6 +6,8 @@
   "ROOM_CODE_PLACEHOLDER": "ABCDE",
   "CREATE_GAME": "Create Game",
   "JOIN_GAME": "Join Game",
+  "JOIN": "Join",
+  "BACK": "Back",
   "LANGUAGE": "Language",
   "LOBBY_TITLE": "Lobby",
   "ROOM": "Room",

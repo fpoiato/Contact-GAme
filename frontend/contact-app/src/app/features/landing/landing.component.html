@@ -17,25 +17,36 @@
       />
     </label>
 
-    <label class="flex flex-col gap-2">
-      <span class="font-semibold">{{ 'ROOM_CODE' | translate }}</span>
-      <input
-        class="rounded-xl border-0 bg-white/90 px-4 py-3 uppercase tracking-widest text-purple-900"
-        [(ngModel)]="roomCode"
-        [placeholder]="'ROOM_CODE_PLACEHOLDER' | translate"
-        maxlength="5"
-      />
-    </label>
+    @if (joinMode) {
+      <label class="flex flex-col gap-2">
+        <span class="font-semibold">{{ 'ROOM_CODE' | translate }}</span>
+        <input
+          class="rounded-xl border-0 bg-white/90 px-4 py-3 uppercase tracking-widest text-purple-900"
+          [(ngModel)]="roomCode"
+          [placeholder]="'ROOM_CODE_PLACEHOLDER' | translate"
+          maxlength="5"
+        />
+      </label>
+    }
 
     @if (error) {
       <p class="rounded-xl bg-coral/30 px-4 py-2 text-sm font-semibold">{{ error }}</p>
     }
 
-    <button type="button" class="btn-primary w-full" [disabled]="loading" (click)="createGame()">
-      {{ 'CREATE_GAME' | translate }}
-    </button>
-    <button type="button" class="btn-secondary w-full" [disabled]="loading" (click)="joinGame()">
-      {{ 'JOIN_GAME' | translate }}
-    </button>
+    @if (!joinMode) {
+      <button type="button" class="btn-primary w-full" [disabled]="loading" (click)="createGame()">
+        {{ 'CREATE_GAME' | translate }}
+      </button>
+      <button type="button" class="btn-secondary w-full" [disabled]="loading" (click)="showJoin()">
+        {{ 'JOIN_GAME' | translate }}
+      </button>
+    } @else {
+      <button type="button" class="btn-primary w-full" [disabled]="loading" (click)="joinGame()">
+        {{ 'JOIN' | translate }}
+      </button>
+      <button type="button" class="btn-secondary w-full" [disabled]="loading" (click)="cancelJoin()">
+        {{ 'BACK' | translate }}
+      </button>
+    }
   </div>
 </div>
