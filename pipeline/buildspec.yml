@@ -14,8 +14,10 @@ phases:
   pre_build:
     commands:
       - echo "Installing project dependencies..."
-      - cd infra/cdk && npm ci
-      - cd ../../frontend/contact-app && npm ci
+      - unset NPM_TOKEN NODE_AUTH_TOKEN || true
+      - npm config delete //registry.npmjs.org/:_authToken || true
+      - npm config set registry https://registry.npmjs.org/
+      - npm ci
       - export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
       - export CDK_DEFAULT_REGION=${AWS_REGION}
   build:
@@ -34,9 +36,9 @@ phases:
           appUrl: '${APP_URL}',
         };
         EOF
-      - cd frontend/contact-app && npm run build
+      - npm run build --workspace=frontend/contact-app
       - echo "Applying Terraform..."
-      - cd ../../infra/terraform
+      - cd infra/terraform
       - terraform init -input=false
       - terraform apply -auto-approve -input=false -var="websocket_url=$WS_URL"
       - export BUCKET=$(terraform output -raw s3_bucket_name)
