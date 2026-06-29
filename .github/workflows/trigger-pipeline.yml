@@ -23,25 +23,21 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: |
-            infra/cdk/package-lock.json
-            frontend/contact-app/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install and test CDK
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test CDK
         working-directory: infra/cdk
-        run: |
-          npm ci
-          npm test
+        run: npm test
 
       - name: Synth CDK
         working-directory: infra/cdk
         run: npx cdk synth
 
       - name: Build Angular
-        working-directory: frontend/contact-app
-        run: |
-          npm ci
-          npm run build
+        run: npm run build --workspace=frontend/contact-app
 
   deploy:
     needs: test
