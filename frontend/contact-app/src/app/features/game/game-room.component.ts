@@ -77,6 +77,14 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     return this.gameEngine.isGuesser();
   }
 
+  get isContactParticipant(): boolean {
+    return this.gameEngine.isContactParticipant();
+  }
+
+  get myId(): string | null {
+    return this.gameEngine.myId;
+  }
+
   get displayPrefix(): string {
     return this.gameEngine.getDisplayPrefix();
   }
@@ -107,8 +115,8 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.clueText = '';
   }
 
-  contact(): void {
-    this.gameEngine.initiateContact();
+  contact(clueId: string): void {
+    this.gameEngine.initiateContact(clueId);
   }
 
   submitContactGuess(): void {

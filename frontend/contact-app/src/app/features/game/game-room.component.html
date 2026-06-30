@@ -56,21 +56,28 @@
       <p class="card text-center text-white/80">{{ 'WAITING_HOST' | translate }}</p>
     }
 
-    @if (state.activeClue && state.phase !== 'WORD_SETUP') {
-      <div class="card">
-        <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ state.activeClue.authorNickname }}</p>
-        <p class="mt-1 text-lg font-semibold">"{{ state.activeClue.text }}"</p>
-      </div>
+    @if (state.activeClues?.length && state.phase !== 'WORD_SETUP') {
+      @for (clue of state.activeClues; track clue.id) {
+        <div
+          class="card flex flex-col gap-3"
+          [class.border-2]="state.contactClueId === clue.id"
+          [class.border-yellow-bright]="state.contactClueId === clue.id"
+        >
+          <div>
+            <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+            <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
+          </div>
+          @if (state.phase === 'CLUE_PHASE' && isGuesser && myId !== clue.authorId) {
+            <button type="button" class="animate-bounceBtn btn-primary w-full py-4 text-2xl" (click)="contact(clue.id)">
+              {{ 'CONTACT' | translate }}
+            </button>
+          }
+        </div>
+      }
     }
 
-    @if (state.phase === 'CLUE_PHASE' && isGuesser && !state.activeClue) {
+    @if (state.phase === 'CLUE_PHASE' && isGuesser) {
       <button type="button" class="btn-secondary w-full" (click)="openClue()">{{ 'CREATE_CLUE' | translate }}</button>
-    }
-
-    @if (state.phase === 'CLUE_PHASE' && isGuesser && state.activeClue) {
-      <button type="button" class="animate-bounceBtn btn-primary w-full py-6 text-3xl" (click)="contact()">
-        {{ 'CONTACT' | translate }}
-      </button>
     }
 
     @if (state.phase === 'CONTACT_COUNTDOWN') {
@@ -79,7 +86,7 @@
         <p class="text-7xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
       </div>
 
-      @if (isGuesser) {
+      @if (isContactParticipant) {
         <div class="card flex flex-col gap-2">
           <label class="font-semibold">{{ 'CONTACT_WORD' | translate }}</label>
           @if (!guessSubmitted) {

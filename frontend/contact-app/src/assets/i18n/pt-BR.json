@@ -25,7 +25,7 @@
   "SECRET_WORD_INVALID": "Use {{min}}–{{max}} letras apenas (sem espaços, números ou símbolos)",
   "SET_WORD": "Definir Palavra",
   "REVEALED": "Revelado",
-  "YOUR_ROLE_CLUE_GIVER": "Você é o Dador de Dicas",
+  "YOUR_ROLE_CLUE_GIVER": "Você é o criador de dicas",
   "YOUR_ROLE_GUESSER": "Você é um Adivinhador",
   "CREATE_CLUE": "Criar Dica",
   "CLUE_PLACEHOLDER": "Digite sua dica…",

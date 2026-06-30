@@ -19,6 +19,7 @@ export type GamePhase =
   | 'ROUND_COMPLETE';
 
 export interface ActiveClue {
+  id: string;
   authorId: string;
   authorNickname: string;
   text: string;
@@ -31,9 +32,10 @@ export interface GameState {
   clueGiverId: string;
   secretWord: string;
   revealedPrefix: string;
-  activeClue?: ActiveClue;
+  activeClues?: ActiveClue[];
   contactInitiatorId?: string;
   contactPartnerId?: string;
+  contactClueId?: string;
   canBlock: boolean;
   clueDeadline?: number;
   contactDeadline?: number;
@@ -121,7 +123,7 @@ export interface HostStateResponsePayload {
 export const MAX_PLAYERS = 12;
 export const MIN_PLAYERS = 2;
 export const CLUE_TIMER_SECONDS = 30;
-export const CONTACT_COUNTDOWN_SECONDS = 5;
+export const CONTACT_COUNTDOWN_SECONDS = 15;
 export const VOTE_TIMEOUT_SECONDS = 15;
 export const ROOM_CODE_LENGTH = 5;
 export const SECRET_WORD_MIN = 4;
