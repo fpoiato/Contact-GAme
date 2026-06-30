@@ -11,3 +11,5 @@ terraform.tfvars
 *.log
 cdk-deploy-output.txt
 terraform-apply-output.txt
+build-log.json
+codebuild-log.txt
