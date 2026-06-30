@@ -73,31 +73,49 @@
       </button>
     }
 
-    @if (canBlock()) {
-      <div class="card flex flex-col gap-2 border-2 border-coral">
-        <label>{{ 'BLOCK_WORD' | translate }}</label>
-        <input
-          class="rounded-xl bg-white/90 px-4 py-3 text-purple-900"
-          [(ngModel)]="blockWord"
-          [placeholder]="'BLOCK_PLACEHOLDER' | translate"
-          (keyup.enter)="block()"
-        />
-        <button type="button" class="btn-danger" (click)="block()">{{ 'BLOCK' | translate }}</button>
+    @if (state.phase === 'CONTACT_COUNTDOWN') {
+      <div class="card text-center border-2 border-yellow-bright">
+        <p class="text-sm uppercase tracking-wide text-white/70">{{ 'COUNTDOWN_ACTIVE' | translate }}</p>
+        <p class="text-7xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
       </div>
-    }
 
-    @if (state.phase === 'MATCH_VOTE') {
-      <div class="card flex flex-col gap-3 text-center">
-        <h2 class="text-xl font-bold">{{ 'MATCH_VOTE_TITLE' | translate }}</h2>
-        @if (!hasVoted) {
-          <div class="flex gap-3">
-            <button type="button" class="btn-secondary flex-1" (click)="vote(true)">{{ 'VOTE_YES' | translate }}</button>
-            <button type="button" class="btn-danger flex-1" (click)="vote(false)">{{ 'VOTE_NO' | translate }}</button>
-          </div>
-        } @else {
-          <p class="text-white/70">{{ 'WAITING_VOTES' | translate }}</p>
-        }
-      </div>
+      @if (isGuesser) {
+        <div class="card flex flex-col gap-2">
+          <label class="font-semibold">{{ 'CONTACT_WORD' | translate }}</label>
+          @if (!guessSubmitted) {
+            <input
+              class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+              [(ngModel)]="contactGuessInput"
+              [placeholder]="'CONTACT_WORD_PLACEHOLDER' | translate"
+              (keyup.enter)="submitContactGuess()"
+              autocapitalize="characters"
+              autocomplete="off"
+            />
+            <button type="button" class="btn-primary" (click)="submitContactGuess()">{{ 'SUBMIT_WORD' | translate }}</button>
+          } @else {
+            <p class="text-center font-semibold text-mint">{{ 'WORD_LOCKED' | translate }}</p>
+          }
+        </div>
+      }
+
+      @if (isClueGiver) {
+        <div class="card flex flex-col gap-2 border-2 border-coral">
+          <label class="font-semibold">{{ 'BLOCK_WORD' | translate }}</label>
+          @if (!blockSubmitted) {
+            <input
+              class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+              [(ngModel)]="blockWord"
+              [placeholder]="'BLOCK_PLACEHOLDER' | translate"
+              (keyup.enter)="submitBlock()"
+              autocapitalize="characters"
+              autocomplete="off"
+            />
+            <button type="button" class="btn-danger" (click)="submitBlock()">{{ 'BLOCK' | translate }}</button>
+          } @else {
+            <p class="text-center font-semibold text-coral">{{ 'BLOCK_LOCKED' | translate }}</p>
+          }
+        </div>
+      }
     }
 
     @if (state.phase === 'ROUND_COMPLETE') {
@@ -118,15 +136,6 @@
           [placeholder]="'CLUE_PLACEHOLDER' | translate"
         ></textarea>
         <button type="button" class="btn-primary" (click)="submitClue()">{{ 'SUBMIT_CLUE' | translate }}</button>
-      </div>
-    </div>
-  }
-
-  @if (contactCount !== null && contactCount >= 0) {
-    <div class="overlay">
-      <div class="text-center">
-        <p class="mb-4 text-xl font-bold">{{ 'COUNTDOWN_ACTIVE' | translate }}</p>
-        <p class="text-8xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
       </div>
     </div>
   }

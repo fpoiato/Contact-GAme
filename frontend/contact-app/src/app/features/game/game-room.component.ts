@@ -28,8 +28,11 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   secretWordInput = '';
   clueText = '';
   blockWord = '';
-  hasVoted = false;
+  contactGuessInput = '';
+  guessSubmitted = false;
+  blockSubmitted = false;
 
+  private prevPhase: string | null = null;
   private subs: Subscription[] = [];
 
   ngOnInit(): void {
@@ -39,9 +42,13 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.subs.push(
       this.gameEngine.state$.subscribe((s) => {
         this.state = s;
-        if (s?.phase === 'MATCH_VOTE') {
-          this.hasVoted = !!s.votes?.[this.gameEngine.myId ?? ''];
+        if (s?.phase === 'CONTACT_COUNTDOWN' && this.prevPhase !== 'CONTACT_COUNTDOWN') {
+          this.guessSubmitted = false;
+          this.blockSubmitted = false;
+          this.contactGuessInput = '';
+          this.blockWord = '';
         }
+        this.prevPhase = s?.phase ?? null;
       }),
       this.gameEngine.overlay$.subscribe((o) => (this.overlay = o)),
       this.gameEngine.clueInputOpen$.subscribe((o) => (this.clueInputOpen = o)),
@@ -104,19 +111,18 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.gameEngine.initiateContact();
   }
 
-  block(): void {
+  submitContactGuess(): void {
+    if (!this.contactGuessInput.trim()) return;
+    this.gameEngine.submitContactGuess(this.contactGuessInput);
+    this.guessSubmitted = true;
+    this.contactGuessInput = '';
+  }
+
+  submitBlock(): void {
     if (!this.blockWord.trim()) return;
-    this.gameEngine.blockContact(this.blockWord);
+    this.gameEngine.submitBlockGuess(this.blockWord);
+    this.blockSubmitted = true;
     this.blockWord = '';
-  }
-
-  vote(matched: boolean): void {
-    this.gameEngine.castVote(matched);
-    this.hasVoted = true;
-  }
-
-  canBlock(): boolean {
-    return !!this.state?.canBlock && this.state.phase === 'CONTACT_COUNTDOWN' && this.isClueGiver;
   }
 
   overlayMessage(): string {

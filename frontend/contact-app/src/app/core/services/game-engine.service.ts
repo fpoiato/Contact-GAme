@@ -4,12 +4,9 @@ import {
   CLUE_TIMER_SECONDS,
   CONTACT_COUNTDOWN_SECONDS,
   createInitialState,
-  GamePhase,
   GameState,
   isValidSecretWord,
-  Player,
   RelayPayload,
-  VOTE_TIMEOUT_SECONDS,
 } from '../models/ws-types';
 import { RoomService } from './room.service';
 import { WebSocketService } from './websocket.service';
@@ -26,7 +23,6 @@ export class GameEngineService implements OnDestroy {
   private readonly clueSecondsSubject = new BehaviorSubject<number | null>(null);
 
   private tickSub: Subscription | null = null;
-  private voteSub: Subscription | null = null;
   private hostRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private messageSub: Subscription | null = null;
 
@@ -146,6 +142,8 @@ export class GameEngineService implements OnDestroy {
       state.contactInitiatorId = room!.connectionId;
       state.contactPartnerId = state.activeClue.authorId;
       state.contactDeadline = Date.now() + CONTACT_COUNTDOWN_SECONDS * 1000;
+      state.contactGuesses = {};
+      state.blockGuess = undefined;
       this.startContactCountdown();
       this.setStateAndRelay('CONTACT_INITIATED', state);
     } else {
@@ -156,34 +154,36 @@ export class GameEngineService implements OnDestroy {
     }
   }
 
-  blockContact(blockWord: string): void {
-    if (!this.isHost) return;
+  submitContactGuess(word: string): void {
     const state = this.state;
-    if (!state || state.phase !== 'CONTACT_COUNTDOWN' || !state.canBlock) return;
-    if (this.myId !== state.clueGiverId) return;
+    const room = this.roomService.room;
+    if (!state || !room || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (this.myId === state.clueGiverId) return;
+    const normalized = word.trim().toUpperCase();
+    if (!normalized) return;
 
-    state.phase = 'BLOCKED';
-    state.lastBlockWord = blockWord.trim();
-    state.canBlock = false;
-    state.contactDeadline = undefined;
-    this.contactCountSubject.next(null);
-    this.overlaySubject.next('BLOCKED');
-    this.setStateAndRelay('CONTACT_BLOCKED', state);
-
-    setTimeout(() => {
-      this.overlaySubject.next(null);
-      if (this.state) {
-        this.state.phase = 'CLUE_PHASE';
-        this.state.activeClue = undefined;
-        this.setStateAndRelay('STATE_SYNC', this.state);
-      }
-    }, 2000);
+    if (this.isHost) {
+      state.contactGuesses = { ...(state.contactGuesses ?? {}), [this.myId!]: normalized };
+      this.stateSubject.next(state);
+    } else {
+      this.ws.send('FORWARD_TO_HOST', { actionType: 'CONTACT_GUESS', word: normalized }, room.roomCode);
+    }
   }
 
-  castVote(matched: boolean): void {
+  submitBlockGuess(word: string): void {
+    const state = this.state;
     const room = this.roomService.room;
-    if (!room) return;
-    this.ws.send('CAST_VOTE', { matched }, room.roomCode);
+    if (!state || !room || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (this.myId !== state.clueGiverId) return;
+    const normalized = word.trim().toUpperCase();
+    if (!normalized) return;
+
+    if (this.isHost) {
+      state.blockGuess = normalized;
+      this.stateSubject.next(state);
+    } else {
+      this.ws.send('FORWARD_TO_HOST', { actionType: 'BLOCK_GUESS', word: normalized }, room.roomCode);
+    }
   }
 
   requestHostStateRecovery(): void {
@@ -204,7 +204,6 @@ export class GameEngineService implements OnDestroy {
 
   ngOnDestroy(): void {
     this.tickSub?.unsubscribe();
-    this.voteSub?.unsubscribe();
     this.messageSub?.unsubscribe();
     if (this.hostRecoveryTimer) clearTimeout(this.hostRecoveryTimer);
   }
@@ -213,9 +212,6 @@ export class GameEngineService implements OnDestroy {
     switch (action) {
       case 'RELAY':
         this.applyRelay(payload as RelayPayload);
-        break;
-      case 'VOTE_FORWARD':
-        if (this.isHost) this.handleVoteForward(payload as { voterId: string; matched: boolean });
         break;
       case 'PLAYER_ACTION':
         if (this.isHost) this.handlePlayerAction(payload as Record<string, unknown>);
@@ -246,6 +242,17 @@ export class GameEngineService implements OnDestroy {
     } else {
       this.stateSubject.next(incoming);
       this.syncTimersFromState(incoming);
+      this.applyOverlayFromRelay(relay);
+    }
+  }
+
+  private applyOverlayFromRelay(relay: RelayPayload): void {
+    if (relay.type === 'CONTACT_BLOCKED') {
+      this.overlaySubject.next('BLOCKED');
+    } else if (relay.type === 'MATCH_RESULT' && relay.meta?.['matched']) {
+      this.overlaySubject.next('SUCCESS');
+    } else if (relay.state.phase === 'CLUE_PHASE' || relay.state.phase === 'WORD_SETUP') {
+      this.overlaySubject.next(null);
     }
   }
 
@@ -268,6 +275,8 @@ export class GameEngineService implements OnDestroy {
         state.contactInitiatorId = meta['initiatorId'] as string;
         state.contactPartnerId = state.activeClue?.authorId;
         state.contactDeadline = Date.now() + CONTACT_COUNTDOWN_SECONDS * 1000;
+        state.contactGuesses = {};
+        state.blockGuess = undefined;
         this.startContactCountdown();
         break;
       }
@@ -302,66 +311,100 @@ export class GameEngineService implements OnDestroy {
         this.setStateAndRelay('CLUE_SUBMITTED', state);
         break;
       case 'CONTACT_INITIATED':
+        if (state.phase !== 'CLUE_PHASE' || !state.activeClue) return;
         state.phase = 'CONTACT_COUNTDOWN';
         state.contactInitiatorId = action['initiatorId'] as string;
         state.contactPartnerId = state.activeClue?.authorId;
         state.contactDeadline = Date.now() + CONTACT_COUNTDOWN_SECONDS * 1000;
+        state.contactGuesses = {};
+        state.blockGuess = undefined;
         this.startContactCountdown();
         this.setStateAndRelay('CONTACT_INITIATED', state);
         break;
+      case 'CONTACT_GUESS': {
+        if (state.phase !== 'CONTACT_COUNTDOWN') return;
+        if (action['senderId'] === state.clueGiverId) return;
+        const word = String(action['word'] ?? '').toUpperCase();
+        if (!word) return;
+        state.contactGuesses = { ...(state.contactGuesses ?? {}), [action['senderId'] as string]: word };
+        this.stateSubject.next(state);
+        break;
+      }
+      case 'BLOCK_GUESS': {
+        if (state.phase !== 'CONTACT_COUNTDOWN') return;
+        if (action['senderId'] !== state.clueGiverId) return;
+        const word = String(action['word'] ?? '').toUpperCase();
+        if (!word) return;
+        state.blockGuess = word;
+        this.stateSubject.next(state);
+        break;
+      }
     }
   }
 
-  private handleVoteForward(vote: { voterId: string; matched: boolean }): void {
+  private resolveContact(): void {
     const state = this.state;
-    if (!state || state.phase !== 'MATCH_VOTE') return;
+    if (!state || !this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
 
-    state.votes = state.votes ?? {};
-    state.votes[vote.voterId] = vote.matched;
+    const guesses = state.contactGuesses ?? {};
+    const initWord = (guesses[state.contactInitiatorId ?? ''] ?? '').trim().toUpperCase();
+    const partWord = (guesses[state.contactPartnerId ?? ''] ?? '').trim().toUpperCase();
+    const block = (state.blockGuess ?? '').trim().toUpperCase();
 
-    const approved = state.players.filter((p) => p.status === 'approved');
-    if (Object.keys(state.votes).length < approved.length) {
-      this.stateSubject.next({ ...state });
+    const matched = !!initWord && !!partWord && initWord === partWord;
+    const blocked = !!block && (block === initWord || block === partWord);
+
+    state.contactDeadline = undefined;
+    this.contactCountSubject.next(null);
+
+    if (blocked) {
+      state.phase = 'BLOCKED';
+      state.lastBlockWord = block;
+      state.contactGuesses = {};
+      state.blockGuess = undefined;
+      this.overlaySubject.next('BLOCKED');
+      this.setStateAndRelay('CONTACT_BLOCKED', state);
+
+      setTimeout(() => {
+        this.overlaySubject.next(null);
+        const s = this.state;
+        if (!s) return;
+        s.phase = 'CLUE_PHASE';
+        s.activeClue = undefined;
+        this.setStateAndRelay('STATE_SYNC', s);
+      }, 2500);
       return;
     }
-
-    this.finalizeVote(state);
-  }
-
-  private finalizeVote(state: GameState): void {
-    const votes = Object.values(state.votes ?? {});
-    const yes = votes.filter(Boolean).length;
-    const no = votes.length - yes;
-    const matched = yes > no;
 
     if (matched) {
       const nextLen = Math.min(state.revealedPrefix.length + 1, state.secretWord.length);
       state.revealedPrefix = state.secretWord.slice(0, nextLen);
       state.phase = 'LETTER_REVEAL';
+      state.activeClue = undefined;
+      state.contactGuesses = {};
+      state.blockGuess = undefined;
       this.overlaySubject.next('SUCCESS');
       this.setStateAndRelay('MATCH_RESULT', state, { matched: true });
 
       setTimeout(() => {
         this.overlaySubject.next(null);
-        if (state.revealedPrefix.length >= state.secretWord.length) {
-          this.completeRound(state);
+        const s = this.state;
+        if (!s) return;
+        if (s.revealedPrefix.length >= s.secretWord.length) {
+          this.completeRound(s);
         } else {
-          state.phase = 'CLUE_PHASE';
-          state.activeClue = undefined;
-          state.canBlock = true;
-          this.setStateAndRelay('LETTER_REVEALED', state);
+          s.phase = 'CLUE_PHASE';
+          this.setStateAndRelay('LETTER_REVEALED', s);
         }
       }, 2000);
-    } else {
-      state.phase = 'CLUE_PHASE';
-      state.activeClue = undefined;
-      state.canBlock = true;
-      this.setStateAndRelay('MATCH_RESULT', state, { matched: false });
+      return;
     }
 
-    state.votes = {};
-    state.voteDeadline = undefined;
-    this.voteSub?.unsubscribe();
+    state.phase = 'CLUE_PHASE';
+    state.activeClue = undefined;
+    state.contactGuesses = {};
+    state.blockGuess = undefined;
+    this.setStateAndRelay('MATCH_RESULT', state, { matched: false });
   }
 
   private completeRound(state: GameState): void {
@@ -394,6 +437,8 @@ export class GameEngineService implements OnDestroy {
 
   private redactForBroadcast(state: GameState): GameState {
     const clone: GameState = JSON.parse(JSON.stringify(state));
+    delete clone.contactGuesses;
+    delete clone.blockGuess;
     return clone;
   }
 
@@ -411,30 +456,9 @@ export class GameEngineService implements OnDestroy {
         this.contactCountSubject.next(0);
         this.tickSub?.unsubscribe();
         this.tickSub = null;
-        if (this.isHost) this.startMatchVote();
+        if (this.isHost) this.resolveContact();
       } else {
         this.contactCountSubject.next(current - 1);
-      }
-    });
-  }
-
-  private startMatchVote(): void {
-    const state = this.state;
-    if (!state) return;
-    state.phase = 'MATCH_VOTE';
-    state.contactDeadline = undefined;
-    state.votes = {};
-    state.voteDeadline = Date.now() + VOTE_TIMEOUT_SECONDS * 1000;
-    this.contactCountSubject.next(null);
-    this.setStateAndRelay('MATCH_VOTE_STARTED', state);
-
-    this.voteSub?.unsubscribe();
-    this.voteSub = interval(1000).subscribe(() => {
-      const s = this.state;
-      if (!s?.voteDeadline) return;
-      if (Date.now() >= s.voteDeadline) {
-        this.voteSub?.unsubscribe();
-        if (this.isHost) this.finalizeVote(s);
       }
     });
   }
