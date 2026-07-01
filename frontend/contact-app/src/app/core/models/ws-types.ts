@@ -101,7 +101,7 @@ export interface RelayPayload {
 }
 
 export const MAX_PLAYERS = 12;
-export const MIN_PLAYERS = 2;
+export const MIN_PLAYERS = 3;
 export const CLUE_TIMER_SECONDS = 30;
 export const CONTACT_COUNTDOWN_SECONDS = 15;
 export const VOTE_TIMEOUT_SECONDS = 15;

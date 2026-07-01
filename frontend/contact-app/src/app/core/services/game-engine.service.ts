@@ -7,6 +7,7 @@ import {
   createInitialState,
   GameState,
   isValidSecretWord,
+  MIN_PLAYERS,
   RelayPayload,
 } from '../models/ws-types';
 import { RoomService } from './room.service';
@@ -54,7 +55,7 @@ export class GameEngineService implements OnDestroy {
     if (!this.isHost) return;
     const room = this.roomService.room;
     const players = this.roomService.players;
-    if (!room || players.length < 2) return;
+    if (!room || players.length < MIN_PLAYERS) return;
 
     const state = createInitialState(players, room.connectionId);
     state.phase = 'WORD_SETUP';
