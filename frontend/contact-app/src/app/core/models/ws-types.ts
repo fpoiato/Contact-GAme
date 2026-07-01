@@ -50,6 +50,13 @@ export interface GameState {
   lastRoundWord?: string;
   scores?: Record<string, number>;
   usedMatchWords?: string[];
+  awaitingRejoin?: AwaitingRejoin;
+}
+
+export interface AwaitingRejoin {
+  nickname: string;
+  connectionId: string;
+  deadlineAt: number;
 }
 
 export type ClientAction =
@@ -78,7 +85,8 @@ export type RelayEventType =
   | 'MATCH_RESULT'
   | 'LETTER_REVEALED'
   | 'ROUND_COMPLETE'
-  | 'CLUE_GIVER_ROTATED';
+  | 'CLUE_GIVER_ROTATED'
+  | 'RETURN_TO_LOBBY';
 
 export type ServerEvent =
   | 'ROOM_CREATED'
@@ -94,6 +102,7 @@ export type ServerEvent =
   | 'VOTE_FORWARD'
   | 'PLAYER_ACTION'
   | 'PLAYER_LEFT'
+  | 'PLAYER_DISCONNECTED'
   | 'REJOIN_OK'
   | 'PLAYER_REJOINED'
   | 'REQUEST_GAME_STATE'
@@ -117,6 +126,7 @@ export const MIN_PLAYERS = 3;
 export const CLUE_TIMER_SECONDS = 45;
 export const CONTACT_COUNTDOWN_SECONDS = 30;
 export const VOTE_TIMEOUT_SECONDS = 30;
+export const RECONNECT_GRACE_SECONDS = 60;
 export const SECRET_WORD_MIN = 4;
 export const SECRET_WORD_MAX = 12;
 export const CLUE_AUTHOR_POINTS = 50;

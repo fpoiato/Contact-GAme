@@ -28,6 +28,16 @@ export const handler: APIGatewayProxyHandler = async (event) => {
   });
   await deleteConnection(connectionId);
 
+  await broadcastToRoom(
+    roomCode,
+    {
+      action: 'PLAYER_DISCONNECTED',
+      payload: { connectionId, nickname, wasHost: isHost },
+      roomCode,
+    },
+    connectionId
+  );
+
   if (isHost) {
     const newHost = await promoteNextHost(roomCode, connectionId);
     if (newHost) {
@@ -41,16 +51,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         roomCode,
       });
     }
-  } else {
-    await broadcastToRoom(
-      roomCode,
-      {
-        action: 'PLAYER_LEFT',
-        payload: { connectionId, nickname: record.nickname },
-        roomCode,
-      },
-      connectionId
-    );
   }
 
   return ok();

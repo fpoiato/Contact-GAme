@@ -185,11 +185,12 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }
 
         if (await nicknameTaken(code, trimmedNickname)) {
-          await sendToConnection(connectionId, {
-            action: 'ERROR',
-            payload: { message: 'Nickname already in use' },
-          });
-          return ok();
+          const stale = (await getRoomConnections(code)).filter(
+            (c) => c.nickname.toLowerCase() === trimmedNickname.toLowerCase()
+          );
+          for (const conn of stale) {
+            await deleteConnection(conn.connectionId);
+          }
         }
 
         const currentHost = await getHostConnection(code);

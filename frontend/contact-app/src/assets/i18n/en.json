@@ -54,6 +54,8 @@
   "TAP_TO_COPY": "Tap to copy link",
   "START_GAME": "Start Game",
   "WAITING_HOST": "Waiting for host to start…",
+  "DISCONNECT_WAIT_TITLE": "Player disconnected",
+  "DISCONNECT_WAIT_MSG": "Waiting for {{name}} to reconnect…",
   "WAITING_APPROVAL": "Waiting for the host to approve your join request…",
   "WAITING_APPROVAL_TITLE": "Pending approval",
   "JOIN_REJECTED_TITLE": "Join request rejected",

@@ -33,6 +33,7 @@ export class RoundScoreboardComponent implements OnInit, OnDestroy {
   rankedPlayers: RankedPlayer[] = [];
   continuing = false;
   loadError = false;
+  reconnectGrace: number | null = null;
 
   private sessionReady = false;
 
@@ -59,6 +60,7 @@ export class RoundScoreboardComponent implements OnInit, OnDestroy {
       this.gameEngine.stateRecoveryFailed$.subscribe((failed) => {
         if (failed) this.loadError = true;
       }),
+      this.gameEngine.reconnectGrace$.subscribe((g) => (this.reconnectGrace = g)),
     );
   }
 

@@ -118,6 +118,7 @@ export class RoomService {
     const code = roomCode.toUpperCase();
     const room = this.room;
     if (room?.roomCode === code) {
+      await this.ws.connect();
       return true;
     }
 
@@ -126,12 +127,24 @@ export class RoomService {
       return false;
     }
 
-    try {
-      await this.rejoinRoom(saved.nickname, roomCode);
-      return true;
-    } catch {
-      return false;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        await this.rejoinRoom(saved.nickname, roomCode);
+        return true;
+      } catch {
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+        }
+      }
     }
+    return false;
+  }
+
+  async tryAutoReconnect(): Promise<string | null> {
+    const saved = this.session.load();
+    if (!saved?.roomCode || !saved.nickname) return null;
+    const ok = await this.tryRestoreSession(saved.roomCode);
+    return ok ? saved.roomCode.toUpperCase() : null;
   }
 
   async rejoinRoom(nickname: string, roomCode: string): Promise<void> {
@@ -204,8 +217,10 @@ export class RoomService {
           this.handleJoinRejected(payload.message);
           observer.next();
         }),
+        this.ws.onAction<{ connectionId: string; nickname: string }>('PLAYER_DISCONNECTED').subscribe(() => {
+          observer.next();
+        }),
         this.ws.onAction<{ connectionId: string; nickname: string }>('PLAYER_LEFT').subscribe((p) => {
-          this.playersSubject.next(this.playersSubject.value.filter((x) => x.connectionId !== p.connectionId));
           observer.next();
         }),
         this.ws.onAction<{ newHostId: string; newHostNickname: string }>('HOST_CHANGED').subscribe((p) => {
@@ -275,6 +290,10 @@ export class RoomService {
   getWhatsAppUrl(roomCode: string): string {
     const text = encodeURIComponent(`Join my Contact game! Room code: ${roomCode}\n${this.getInviteUrl(roomCode)}`);
     return `https://wa.me/?text=${text}`;
+  }
+
+  syncPlayersFromGame(players: Player[]): void {
+    this.playersSubject.next(players);
   }
 
   reset(): void {

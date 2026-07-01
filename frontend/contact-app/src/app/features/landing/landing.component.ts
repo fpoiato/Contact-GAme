@@ -2,7 +2,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
+import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
+import { SessionService } from '../../core/services/session.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
 import { LoadingButtonComponent } from '../../shared/loading-button.component';
 
@@ -14,6 +16,8 @@ import { LoadingButtonComponent } from '../../shared/loading-button.component';
 })
 export class LandingComponent implements OnInit {
   private readonly roomService = inject(RoomService);
+  private readonly gameEngine = inject(GameEngineService);
+  private readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
   nickname = '';
@@ -21,6 +25,7 @@ export class LandingComponent implements OnInit {
   loading = false;
   error = '';
   joinMode = false;
+  reconnecting = false;
 
   guideOpen = false;
 
@@ -30,6 +35,39 @@ export class LandingComponent implements OnInit {
     if (room) {
       this.roomCode = room.toUpperCase().slice(0, 5);
       this.joinMode = true;
+    }
+
+    const saved = this.session.load();
+    if (saved?.nickname) {
+      this.nickname = saved.nickname;
+    }
+    if (saved?.roomCode && !room) {
+      this.roomCode = saved.roomCode.toUpperCase();
+    }
+
+    void this.tryAutoReconnect();
+  }
+
+  private async tryAutoReconnect(): Promise<void> {
+    const saved = this.session.load();
+    if (!saved?.roomCode || !saved.nickname) return;
+
+    this.reconnecting = true;
+    this.gameEngine.init();
+    try {
+      const code = await this.roomService.tryAutoReconnect();
+      if (!code) return;
+
+      const route = await this.gameEngine.resolveRouteAfterReconnect();
+      if (route === 'game') {
+        await this.router.navigate(['/game', code]);
+      } else {
+        await this.router.navigate(['/lobby', code]);
+      }
+    } catch {
+      // Stay on landing with session prefilled
+    } finally {
+      this.reconnecting = false;
     }
   }
 

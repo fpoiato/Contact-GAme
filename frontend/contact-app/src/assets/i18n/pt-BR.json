@@ -54,6 +54,8 @@
   "TAP_TO_COPY": "Toque para copiar o link",
   "START_GAME": "Iniciar Jogo",
   "WAITING_HOST": "Aguardando o host iniciar…",
+  "DISCONNECT_WAIT_TITLE": "Jogador desconectado",
+  "DISCONNECT_WAIT_MSG": "Aguardando {{name}} reconectar…",
   "WAITING_APPROVAL": "Aguardando o host aprovar sua entrada…",
   "WAITING_APPROVAL_TITLE": "Aprovação pendente",
   "JOIN_REJECTED_TITLE": "Entrada recusada",

@@ -287,6 +287,23 @@
     </div>
   }
 
+  @if (state?.awaitingRejoin; as awaiting) {
+    @if (reconnectGrace !== null) {
+      <div class="overlay">
+        <div class="card w-full max-w-sm flex flex-col items-center gap-4 text-center">
+          <app-spinner size="lg" />
+          <div>
+            <p class="text-lg font-bold">{{ 'DISCONNECT_WAIT_TITLE' | translate }}</p>
+            <p class="mt-2 text-sm text-white/80">
+              {{ 'DISCONNECT_WAIT_MSG' | translate: { name: awaiting.nickname } }}
+            </p>
+            <p class="mt-4 text-5xl font-black text-yellow-bright">{{ reconnectGrace }}s</p>
+          </div>
+        </div>
+      </div>
+    }
+  }
+
   @if (overlay) {
     <div class="overlay">
       <p class="text-center text-4xl font-black text-yellow-bright">{{ overlayMessage() | translate }}</p>

@@ -1,5 +1,6 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Subscription, interval } from 'rxjs';
+import { BehaviorSubject, Subscription, firstValueFrom, interval, of, timeout, catchError } from 'rxjs';
+import { filter, map, take } from 'rxjs/operators';
 import {
   ActiveClue,
   BLOCK_POINTS,
@@ -13,6 +14,7 @@ import {
   isValidSecretWord,
   MIN_PLAYERS,
   Player,
+  RECONNECT_GRACE_SECONDS,
   redactStateForPlayer,
   RelayPayload,
 } from '../models/ws-types';
@@ -29,11 +31,15 @@ export class GameEngineService implements OnDestroy {
   private readonly clueInputOpenSubject = new BehaviorSubject<boolean>(false);
   private readonly contactCountSubject = new BehaviorSubject<number | null>(null);
   private readonly clueSecondsSubject = new BehaviorSubject<number | null>(null);
+  private readonly reconnectGraceSubject = new BehaviorSubject<number | null>(null);
 
   private tickSub: Subscription | null = null;
+  private reconnectGraceTickSub: Subscription | null = null;
   private hostRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private gameStateRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private messageSub: Subscription | null = null;
+  private pendingDisconnect: { connectionId: string; nickname: string } | null = null;
   private readonly stateRecoveryFailedSubject = new BehaviorSubject<boolean>(false);
 
   readonly stateRecoveryFailed$ = this.stateRecoveryFailedSubject.asObservable();
@@ -43,6 +49,7 @@ export class GameEngineService implements OnDestroy {
   readonly clueInputOpen$ = this.clueInputOpenSubject.asObservable();
   readonly contactCount$ = this.contactCountSubject.asObservable();
   readonly clueSeconds$ = this.clueSecondsSubject.asObservable();
+  readonly reconnectGrace$ = this.reconnectGraceSubject.asObservable();
 
   get state(): GameState | null {
     return this.stateSubject.value;
@@ -59,6 +66,25 @@ export class GameEngineService implements OnDestroy {
   init(): void {
     if (this.messageSub) return;
     this.messageSub = this.ws.messages$.subscribe((msg) => this.handleMessage(msg.action, msg.payload));
+  }
+
+  async resolveRouteAfterReconnect(timeoutMs = 8000): Promise<'lobby' | 'game'> {
+    const room = this.roomService.room;
+    if (!room) return 'lobby';
+    if (room.isHost) {
+      this.requestHostStateRecovery();
+    } else {
+      this.requestGameState();
+    }
+    return firstValueFrom(
+      this.state$.pipe(
+        filter((s) => !!s),
+        take(1),
+        map((s) => (s!.phase !== 'LOBBY' ? 'game' : 'lobby')),
+        timeout(timeoutMs),
+        catchError(() => of('lobby' as const)),
+      ),
+    );
   }
 
   startGame(): void {
@@ -247,9 +273,11 @@ export class GameEngineService implements OnDestroy {
 
   ngOnDestroy(): void {
     this.tickSub?.unsubscribe();
+    this.reconnectGraceTickSub?.unsubscribe();
     this.messageSub?.unsubscribe();
     if (this.hostRecoveryTimer) clearTimeout(this.hostRecoveryTimer);
     if (this.gameStateRecoveryTimer) clearTimeout(this.gameStateRecoveryTimer);
+    this.clearReconnectGraceTimer();
   }
 
   private handleMessage(action: string, payload: unknown): void {
@@ -282,6 +310,9 @@ export class GameEngineService implements OnDestroy {
       case 'PLAYER_REJOINED':
         if (this.isHost) this.handlePlayerRejoined(payload as Record<string, unknown>);
         break;
+      case 'PLAYER_DISCONNECTED':
+        this.handlePlayerDisconnected(payload as { connectionId: string; nickname: string });
+        break;
       case 'HOST_CHANGED':
         if (this.roomService.room?.isHost) {
           this.requestHostStateRecovery();
@@ -303,6 +334,12 @@ export class GameEngineService implements OnDestroy {
       this.stateSubject.next(incoming);
       this.syncTimersFromState(incoming);
       this.applyOverlayFromRelay(relay);
+    }
+    this.syncReconnectGrace(this.state);
+    if (relay.type === 'RETURN_TO_LOBBY') {
+      this.overlaySubject.next(null);
+      this.clueInputOpenSubject.next(false);
+      this.roomService.syncPlayersFromGame(incoming.players);
     }
   }
 
@@ -669,6 +706,11 @@ export class GameEngineService implements OnDestroy {
     this.stateRecoveryFailedSubject.next(false);
     this.stateSubject.next(state);
     this.syncTimersFromState(state);
+    this.syncReconnectGrace(state);
+    if (this.isHost && state.awaitingRejoin) {
+      this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
+    }
+    this.flushPendingDisconnect();
   }
 
   private handlePlayerApproved(player: Player): void {
@@ -721,6 +763,15 @@ export class GameEngineService implements OnDestroy {
         : player
     );
 
+    if (
+      state.awaitingRejoin &&
+      (state.awaitingRejoin.connectionId === previousConnectionId ||
+        state.awaitingRejoin.nickname.toLowerCase() === nickname.toLowerCase())
+    ) {
+      state.awaitingRejoin = undefined;
+      this.clearReconnectGraceTimer();
+    }
+
     this.setStateAndRelay('STATE_SYNC', state);
   }
 
@@ -741,6 +792,123 @@ export class GameEngineService implements OnDestroy {
     }
     this.stateSubject.next(state);
     this.setStateAndRelay('STATE_SYNC', state);
+    this.syncReconnectGrace(state);
+    if (this.isHost && state.awaitingRejoin) {
+      this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
+    }
+    this.flushPendingDisconnect();
+  }
+
+  private handlePlayerDisconnected(payload: { connectionId: string; nickname: string }): void {
+    if (!this.isHost) return;
+    const state = this.state;
+    if (!state || state.phase === 'LOBBY') {
+      this.pendingDisconnect = payload;
+      return;
+    }
+    this.applyDisconnectGrace(payload);
+  }
+
+  private flushPendingDisconnect(): void {
+    if (!this.pendingDisconnect || !this.isHost) return;
+    const state = this.state;
+    if (!state || state.phase === 'LOBBY') return;
+    this.applyDisconnectGrace(this.pendingDisconnect);
+    this.pendingDisconnect = null;
+  }
+
+  private applyDisconnectGrace(payload: { connectionId: string; nickname: string }): void {
+    const state = this.state;
+    if (!state || state.phase === 'LOBBY') return;
+
+    this.stopContactCountdown();
+    this.clueInputOpenSubject.next(false);
+    this.clueSecondsSubject.next(null);
+
+    state.awaitingRejoin = {
+      nickname: payload.nickname,
+      connectionId: payload.connectionId,
+      deadlineAt: Date.now() + RECONNECT_GRACE_SECONDS * 1000,
+    };
+
+    this.syncReconnectGrace(state);
+    this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
+    this.setStateAndRelay('STATE_SYNC', state);
+  }
+
+  private scheduleReconnectGraceExpiry(deadlineAt: number): void {
+    this.clearReconnectGraceTimer();
+    const delay = deadlineAt - Date.now();
+    if (delay <= 0) {
+      this.returnToLobby();
+      return;
+    }
+    this.reconnectGraceTimer = setTimeout(() => this.returnToLobby(), delay);
+  }
+
+  private clearReconnectGraceTimer(): void {
+    if (this.reconnectGraceTimer) {
+      clearTimeout(this.reconnectGraceTimer);
+      this.reconnectGraceTimer = null;
+    }
+  }
+
+  private syncReconnectGrace(state: GameState | null): void {
+    this.reconnectGraceTickSub?.unsubscribe();
+    this.reconnectGraceTickSub = null;
+    if (!state?.awaitingRejoin) {
+      this.reconnectGraceSubject.next(null);
+      return;
+    }
+
+    const tick = () => {
+      const deadline = this.state?.awaitingRejoin?.deadlineAt;
+      if (!deadline) {
+        this.reconnectGraceSubject.next(null);
+        return;
+      }
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      this.reconnectGraceSubject.next(remaining);
+    };
+
+    tick();
+    this.reconnectGraceTickSub = interval(1000).subscribe(tick);
+  }
+
+  private returnToLobby(): void {
+    const state = this.state;
+    if (!state || !this.isHost || state.phase === 'LOBBY') return;
+
+    const disconnectedId = state.awaitingRejoin?.connectionId;
+    this.clearReconnectGraceTimer();
+    this.stopContactCountdown();
+    this.overlaySubject.next(null);
+    this.clueInputOpenSubject.next(false);
+    this.clueSecondsSubject.next(null);
+    this.pendingDisconnect = null;
+
+    if (disconnectedId) {
+      state.players = state.players.filter((p) => p.connectionId !== disconnectedId);
+    }
+
+    this.roomService.syncPlayersFromGame(state.players);
+
+    state.awaitingRejoin = undefined;
+    state.phase = 'LOBBY';
+    state.secretWord = '';
+    state.revealedPrefix = '';
+    state.activeClues = [];
+    state.usedMatchWords = [];
+    state.contactInitiatorId = undefined;
+    state.contactPartnerId = undefined;
+    state.contactClueId = undefined;
+    state.contactGuesses = undefined;
+    state.blockGuess = undefined;
+    state.contactDeadline = undefined;
+    state.lastBlockWord = undefined;
+
+    this.syncReconnectGrace(state);
+    this.setStateAndRelay('RETURN_TO_LOBBY', state);
   }
 
   private fallbackRecovery(): void {

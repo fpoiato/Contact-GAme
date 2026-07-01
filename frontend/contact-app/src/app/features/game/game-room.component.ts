@@ -44,6 +44,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   loadError = false;
   scoresOpen = false;
+  reconnectGrace: number | null = null;
   pending: Player[] = [];
   approvingIds = new Set<string>();
   rejectingIds = new Set<string>();
@@ -80,8 +81,12 @@ export class GameRoomComponent implements OnInit, OnDestroy {
         if (s?.phase === 'ROUND_COMPLETE' && this.prevPhase !== 'ROUND_COMPLETE') {
           this.router.navigate(['/game', this.roomCode, 'scoreboard']);
         }
+        if (s?.phase === 'LOBBY' && this.prevPhase && this.prevPhase !== 'LOBBY') {
+          this.router.navigate(['/lobby', this.roomCode]);
+        }
         this.prevPhase = s?.phase ?? null;
       }),
+      this.gameEngine.reconnectGrace$.subscribe((g) => (this.reconnectGrace = g)),
       this.gameEngine.overlay$.subscribe((o) => (this.overlay = o)),
       this.gameEngine.clueInputOpen$.subscribe((o) => {
         this.clueInputOpen = o;
