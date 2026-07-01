@@ -90,7 +90,7 @@ English and Portuguese (Brazil) — toggle in app header. Translation files in `
 
 ## Rules
 
-- 2–12 players per room
+- 3–12 players per room
 - Secret word: letters only, 4–12 characters
 - Clue Giver auto-rotates each round
 - Match votes: all players; tie = no match
