@@ -31,9 +31,10 @@ export class LandingComponent implements OnInit {
 
   ngOnInit(): void {
     const params = new URLSearchParams(window.location.search);
-    const room = params.get('room');
-    if (room) {
-      this.roomCode = room.toUpperCase().slice(0, 5);
+    const roomParam = params.get('room');
+    const urlRoom = roomParam ? roomParam.toUpperCase().slice(0, 5) : null;
+    if (urlRoom) {
+      this.roomCode = urlRoom;
       this.joinMode = true;
     }
 
@@ -41,21 +42,27 @@ export class LandingComponent implements OnInit {
     if (saved?.nickname) {
       this.nickname = saved.nickname;
     }
-    if (saved?.roomCode && !room) {
+    if (saved?.roomCode && !urlRoom) {
       this.roomCode = saved.roomCode.toUpperCase();
     }
 
-    void this.tryAutoReconnect();
+    // Invite links (?room=) take priority over a stale stored session.
+    if (urlRoom && saved?.roomCode && saved.roomCode.toUpperCase() !== urlRoom) {
+      this.roomService.reset();
+    }
+
+    void this.tryAutoReconnect(urlRoom);
   }
 
-  private async tryAutoReconnect(): Promise<void> {
+  private async tryAutoReconnect(urlRoom: string | null): Promise<void> {
     const saved = this.session.load();
     if (!saved?.roomCode || !saved.nickname) return;
+    if (urlRoom && saved.roomCode.toUpperCase() !== urlRoom) return;
 
     this.reconnecting = true;
     this.gameEngine.init();
     try {
-      const code = await this.roomService.tryAutoReconnect();
+      const code = await this.roomService.tryAutoReconnect(urlRoom);
       if (!code) return;
 
       const route = await this.gameEngine.resolveRouteAfterReconnect();

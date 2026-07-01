@@ -140,11 +140,14 @@ export class RoomService {
     return false;
   }
 
-  async tryAutoReconnect(): Promise<string | null> {
+  async tryAutoReconnect(urlRoomCode?: string | null): Promise<string | null> {
     const saved = this.session.load();
     if (!saved?.roomCode || !saved.nickname) return null;
-    const ok = await this.tryRestoreSession(saved.roomCode);
-    return ok ? saved.roomCode.toUpperCase() : null;
+    const savedCode = saved.roomCode.toUpperCase();
+    const urlCode = urlRoomCode?.toUpperCase();
+    if (urlCode && savedCode !== urlCode) return null;
+    const ok = await this.tryRestoreSession(savedCode);
+    return ok ? savedCode : null;
   }
 
   async rejoinRoom(nickname: string, roomCode: string): Promise<void> {
