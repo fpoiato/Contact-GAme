@@ -28,12 +28,26 @@
         <div class="mb-2 flex items-center justify-between rounded-xl bg-white/10 px-4 py-2">
           <span>{{ p.nickname }}</span>
           <div class="flex gap-2">
-            <button type="button" class="btn-secondary px-3 py-1 text-sm" (click)="approve(p.connectionId)">
+            <app-loading-button
+              variant="secondary"
+              extraClass="px-3 py-1 text-sm min-h-0"
+              spinnerSize="sm"
+              [loading]="isApproving(p.connectionId)"
+              [disabled]="isRejecting(p.connectionId)"
+              (pressed)="approve(p.connectionId)"
+            >
               {{ 'APPROVE' | translate }}
-            </button>
-            <button type="button" class="btn-danger px-3 py-1 text-sm" (click)="reject(p.connectionId)">
+            </app-loading-button>
+            <app-loading-button
+              variant="danger"
+              extraClass="px-3 py-1 text-sm min-h-0"
+              spinnerSize="sm"
+              [loading]="isRejecting(p.connectionId)"
+              [disabled]="isApproving(p.connectionId)"
+              (pressed)="reject(p.connectionId)"
+            >
               {{ 'REJECT' | translate }}
-            </button>
+            </app-loading-button>
           </div>
         </div>
       }
@@ -41,22 +55,36 @@
   }
 
   <div class="flex flex-col gap-3">
-    <button type="button" class="btn-secondary" (click)="copyLink()">
+    <app-loading-button
+      variant="secondary"
+      [loading]="copying"
+      [disabled]="copied"
+      (pressed)="copyLink()"
+    >
       {{ copied ? ('LINK_COPIED' | translate) : ('COPY_LINK' | translate) }}
-    </button>
-    <button type="button" class="btn-secondary" (click)="shareWhatsApp()">
+    </app-loading-button>
+    <app-loading-button variant="secondary" (pressed)="shareWhatsApp()">
       {{ 'SHARE_WHATSAPP' | translate }}
-    </button>
+    </app-loading-button>
   </div>
 
   @if (isHost) {
-    <button type="button" class="btn-primary mt-auto" [disabled]="!canStart()" (click)="startGame()">
+    <app-loading-button
+      extraClass="mt-auto"
+      [loading]="starting"
+      [disabled]="!canStart()"
+      [showLoadingLabel]="true"
+      (pressed)="startGame()"
+    >
       {{ 'START_GAME' | translate }}
-    </button>
+    </app-loading-button>
     @if (!canStart()) {
       <p class="text-center text-sm text-white/70">{{ 'MIN_PLAYERS' | translate }}</p>
     }
   } @else {
-    <p class="mt-auto text-center text-lg text-white/80">{{ 'WAITING_HOST' | translate }}</p>
+    <p class="mt-auto flex items-center justify-center gap-2 text-center text-lg text-white/80">
+      <app-spinner size="sm" />
+      {{ 'WAITING_HOST' | translate }}
+    </p>
   }
 </div>

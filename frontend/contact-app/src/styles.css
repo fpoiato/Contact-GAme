@@ -24,15 +24,15 @@ textarea {
 }
 
 .btn-primary {
-  @apply min-h-12 rounded-2xl bg-yellow-bright px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95;
+  @apply min-h-12 rounded-2xl bg-yellow-bright px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-secondary {
-  @apply min-h-12 rounded-2xl bg-mint px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95;
+  @apply min-h-12 rounded-2xl bg-mint px-6 py-3 text-lg font-bold text-purple-900 shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .btn-danger {
-  @apply min-h-12 rounded-2xl bg-coral px-6 py-3 text-lg font-bold text-white shadow-lg transition active:scale-95;
+  @apply min-h-12 rounded-2xl bg-coral px-6 py-3 text-lg font-bold text-white shadow-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60;
 }
 
 .card {

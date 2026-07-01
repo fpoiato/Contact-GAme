@@ -4,11 +4,12 @@ import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
+import { LoadingButtonComponent } from '../../shared/loading-button.component';
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [FormsModule, TranslateModule, LanguageToggleComponent],
+  imports: [FormsModule, TranslateModule, LanguageToggleComponent, LoadingButtonComponent],
   templateUrl: './landing.component.html',
 })
 export class LandingComponent implements OnInit {
@@ -20,6 +21,8 @@ export class LandingComponent implements OnInit {
   loading = false;
   error = '';
   joinMode = false;
+
+  guideOpen = false;
 
   ngOnInit(): void {
     const params = new URLSearchParams(window.location.search);

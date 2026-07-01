@@ -45,6 +45,9 @@ export interface GameState {
   blockGuess?: string;
   currentRound: number;
   lastBlockWord?: string;
+  lastRoundWord?: string;
+  scores?: Record<string, number>;
+  usedMatchWords?: string[];
 }
 
 export type ClientAction =
@@ -128,6 +131,10 @@ export const VOTE_TIMEOUT_SECONDS = 15;
 export const ROOM_CODE_LENGTH = 5;
 export const SECRET_WORD_MIN = 4;
 export const SECRET_WORD_MAX = 12;
+export const CLUE_AUTHOR_POINTS = 50;
+export const CONTACT_INITIATOR_POINTS = 25;
+export const BLOCK_POINTS = 15;
+export const CONTACT_MATCH_POINTS = 15;
 
 export function generateRoomCode(): string {
   const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';

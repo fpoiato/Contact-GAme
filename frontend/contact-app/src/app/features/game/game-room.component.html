@@ -7,6 +7,13 @@
     <app-language-toggle />
   </div>
 
+  @if (!state) {
+    <div class="card flex flex-col items-center gap-3 py-10 text-center">
+      <app-spinner size="lg" />
+      <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+    </div>
+  }
+
   @if (state) {
     <div class="card text-center">
       <p class="text-sm uppercase tracking-wide text-white/70">{{ 'REVEALED' | translate }}</p>
@@ -30,6 +37,7 @@
           [(ngModel)]="secretWordInput"
           [placeholder]="'SECRET_WORD_HINT' | translate"
           [maxlength]="secretWordMax"
+          [disabled]="settingWord"
           (keyup.enter)="setWord()"
           autocapitalize="characters"
           autocomplete="off"
@@ -41,19 +49,34 @@
         } @else {
           <p class="text-sm text-white/60">{{ 'SECRET_WORD_HINT' | translate }}</p>
         }
-        <button
-          type="button"
-          class="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-          (click)="setWord()"
+        <app-loading-button
+          [loading]="settingWord"
           [disabled]="!secretWordValid"
+          [showLoadingLabel]="true"
+          (pressed)="setWord()"
         >
           {{ 'SET_WORD' | translate }}
-        </button>
+        </app-loading-button>
       </div>
     }
 
     @if (state.phase === 'WORD_SETUP' && !isClueGiver) {
-      <p class="card text-center text-white/80">{{ 'WAITING_HOST' | translate }}</p>
+      <p class="card flex items-center justify-center gap-2 text-center text-white/80">
+        <app-spinner size="sm" />
+        {{ 'WAITING_HOST' | translate }}
+      </p>
+    }
+
+    @if (usedMatchWords.length && (state.phase === 'CLUE_PHASE' || state.phase === 'CONTACT_COUNTDOWN')) {
+      <div class="card flex flex-col gap-2">
+        <p class="text-sm uppercase tracking-wide text-white/70">{{ 'USED_WORDS' | translate }}</p>
+        <p class="text-sm text-white/80">{{ 'USED_WORDS_HINT' | translate }}</p>
+        <div class="flex flex-wrap gap-2">
+          @for (word of usedMatchWords; track word) {
+            <span class="rounded-lg bg-white/15 px-3 py-1 text-sm font-semibold uppercase">{{ word }}</span>
+          }
+        </div>
+      </div>
     }
 
     @if (state.activeClues?.length && state.phase !== 'WORD_SETUP') {
@@ -68,16 +91,25 @@
             <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
           </div>
           @if (state.phase === 'CLUE_PHASE' && isGuesser && myId !== clue.authorId) {
-            <button type="button" class="animate-bounceBtn btn-primary w-full py-4 text-2xl" (click)="contact(clue.id)">
+            <app-loading-button
+              extraClass="animate-bounceBtn w-full py-4 text-2xl"
+              spinnerSize="lg"
+              [loading]="isContacting(clue.id)"
+              [disabled]="!!contactingClueId && !isContacting(clue.id)"
+              [showLoadingLabel]="true"
+              (pressed)="contact(clue.id)"
+            >
               {{ 'CONTACT' | translate }}
-            </button>
+            </app-loading-button>
           }
         </div>
       }
     }
 
     @if (state.phase === 'CLUE_PHASE' && isGuesser) {
-      <button type="button" class="btn-secondary w-full" (click)="openClue()">{{ 'CREATE_CLUE' | translate }}</button>
+      <app-loading-button variant="secondary" extraClass="w-full" (pressed)="openClue()">
+        {{ 'CREATE_CLUE' | translate }}
+      </app-loading-button>
     }
 
     @if (state.phase === 'CONTACT_COUNTDOWN') {
@@ -92,15 +124,32 @@
           @if (!guessSubmitted) {
             <input
               class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+              [class.ring-2]="contactWordAlreadyUsed || guessWordError"
+              [class.ring-coral]="contactWordAlreadyUsed || guessWordError"
               [(ngModel)]="contactGuessInput"
               [placeholder]="'CONTACT_WORD_PLACEHOLDER' | translate"
+              [disabled]="submittingGuess"
               (keyup.enter)="submitContactGuess()"
+              (input)="guessWordError = false"
               autocapitalize="characters"
               autocomplete="off"
             />
-            <button type="button" class="btn-primary" (click)="submitContactGuess()">{{ 'SUBMIT_WORD' | translate }}</button>
+            @if (contactWordAlreadyUsed || guessWordError) {
+              <p class="text-sm text-coral">{{ 'WORD_ALREADY_USED' | translate }}</p>
+            }
+            <app-loading-button
+              [loading]="submittingGuess"
+              [disabled]="!contactGuessInput.trim() || contactWordAlreadyUsed"
+              [showLoadingLabel]="true"
+              (pressed)="submitContactGuess()"
+            >
+              {{ 'SUBMIT_WORD' | translate }}
+            </app-loading-button>
           } @else {
-            <p class="text-center font-semibold text-mint">{{ 'WORD_LOCKED' | translate }}</p>
+            <p class="flex items-center justify-center gap-2 text-center font-semibold text-mint">
+              <app-spinner size="sm" />
+              {{ 'WORD_LOCKED' | translate }}
+            </p>
           }
         </div>
       }
@@ -113,20 +162,40 @@
               class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
               [(ngModel)]="blockWord"
               [placeholder]="'BLOCK_PLACEHOLDER' | translate"
+              [disabled]="submittingBlock"
               (keyup.enter)="submitBlock()"
               autocapitalize="characters"
               autocomplete="off"
             />
-            <button type="button" class="btn-danger" (click)="submitBlock()">{{ 'BLOCK' | translate }}</button>
+            <app-loading-button
+              variant="danger"
+              [loading]="submittingBlock"
+              [disabled]="!blockWord.trim()"
+              [showLoadingLabel]="true"
+              (pressed)="submitBlock()"
+            >
+              {{ 'BLOCK' | translate }}
+            </app-loading-button>
           } @else {
-            <p class="text-center font-semibold text-coral">{{ 'BLOCK_LOCKED' | translate }}</p>
+            <p class="flex items-center justify-center gap-2 text-center font-semibold text-coral">
+              <app-spinner size="sm" />
+              {{ 'BLOCK_LOCKED' | translate }}
+            </p>
           }
         </div>
       }
     }
 
-    @if (state.phase === 'ROUND_COMPLETE') {
-      <p class="card text-center text-xl font-bold text-mint">{{ 'ROUND_COMPLETE' | translate }}</p>
+    @if (state.players.length && state.phase !== 'ROUND_COMPLETE') {
+      <div class="card flex flex-col gap-2">
+        <p class="text-sm uppercase tracking-wide text-white/70">{{ 'SCORES' | translate }}</p>
+        @for (player of state.players; track player.connectionId) {
+          <div class="flex items-center justify-between text-sm">
+            <span [class.font-bold]="player.connectionId === myId">{{ player.nickname }}</span>
+            <span class="font-semibold text-yellow-bright">{{ getScore(player.connectionId) }} {{ 'PTS' | translate }}</span>
+          </div>
+        }
+      </div>
     }
   }
 
@@ -141,8 +210,16 @@
           class="min-h-24 rounded-xl bg-white/90 p-3 text-purple-900"
           [(ngModel)]="clueText"
           [placeholder]="'CLUE_PLACEHOLDER' | translate"
+          [disabled]="submittingClue"
         ></textarea>
-        <button type="button" class="btn-primary" (click)="submitClue()">{{ 'SUBMIT_CLUE' | translate }}</button>
+        <app-loading-button
+          [loading]="submittingClue"
+          [disabled]="!clueText.trim()"
+          [showLoadingLabel]="true"
+          (pressed)="submitClue()"
+        >
+          {{ 'SUBMIT_CLUE' | translate }}
+        </app-loading-button>
       </div>
     </div>
   }

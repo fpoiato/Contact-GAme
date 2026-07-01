@@ -2,8 +2,12 @@ import { Injectable, inject, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Subscription, interval } from 'rxjs';
 import {
   ActiveClue,
+  BLOCK_POINTS,
+  CLUE_AUTHOR_POINTS,
   CLUE_TIMER_SECONDS,
   CONTACT_COUNTDOWN_SECONDS,
+  CONTACT_INITIATOR_POINTS,
+  CONTACT_MATCH_POINTS,
   createInitialState,
   GameState,
   isValidSecretWord,
@@ -75,6 +79,7 @@ export class GameEngineService implements OnDestroy {
       state.revealedPrefix = normalized[0];
       state.phase = 'CLUE_PHASE';
       state.activeClues = [];
+      state.usedMatchWords = [];
       this.setStateAndRelay('SECRET_WORD_SET', state);
     } else {
       this.ws.send('FORWARD_TO_HOST', {
@@ -163,13 +168,14 @@ export class GameEngineService implements OnDestroy {
     }
   }
 
-  submitContactGuess(word: string): void {
+  submitContactGuess(word: string): boolean {
     const state = this.state;
     const room = this.roomService.room;
-    if (!state || !room || state.phase !== 'CONTACT_COUNTDOWN') return;
-    if (this.myId !== state.contactInitiatorId && this.myId !== state.contactPartnerId) return;
+    if (!state || !room || state.phase !== 'CONTACT_COUNTDOWN') return false;
+    if (this.myId !== state.contactInitiatorId && this.myId !== state.contactPartnerId) return false;
     const normalized = word.trim().toUpperCase();
-    if (!normalized) return;
+    if (!normalized) return false;
+    if (this.isUsedMatchWord(normalized)) return false;
 
     if (this.isHost) {
       state.contactGuesses = { ...(state.contactGuesses ?? {}), [this.myId!]: normalized };
@@ -177,6 +183,7 @@ export class GameEngineService implements OnDestroy {
     } else {
       this.ws.send('FORWARD_TO_HOST', { actionType: 'CONTACT_GUESS', word: normalized }, room.roomCode);
     }
+    return true;
   }
 
   submitBlockGuess(word: string): void {
@@ -258,6 +265,8 @@ export class GameEngineService implements OnDestroy {
   private applyOverlayFromRelay(relay: RelayPayload): void {
     if (relay.type === 'CONTACT_BLOCKED') {
       this.overlaySubject.next('BLOCKED');
+    } else if (relay.type === 'MATCH_RESULT' && relay.meta?.['wordGuessed']) {
+      this.overlaySubject.next('WORD_GUESSED');
     } else if (relay.type === 'MATCH_RESULT' && relay.meta?.['matched']) {
       this.overlaySubject.next('SUCCESS');
     } else if (relay.state.phase === 'CLUE_PHASE' || relay.state.phase === 'WORD_SETUP') {
@@ -313,6 +322,7 @@ export class GameEngineService implements OnDestroy {
         state.revealedPrefix = normalized[0];
         state.phase = 'CLUE_PHASE';
         state.activeClues = [];
+        state.usedMatchWords = [];
         this.setStateAndRelay('SECRET_WORD_SET', state);
         break;
       }
@@ -349,6 +359,7 @@ export class GameEngineService implements OnDestroy {
         if (senderId !== state.contactInitiatorId && senderId !== state.contactPartnerId) return;
         const word = String(action['word'] ?? '').toUpperCase();
         if (!word) return;
+        if (this.isUsedMatchWord(word, state)) return;
         state.contactGuesses = { ...(state.contactGuesses ?? {}), [action['senderId'] as string]: word };
         this.stateSubject.next(state);
         break;
@@ -374,13 +385,15 @@ export class GameEngineService implements OnDestroy {
     const partWord = (guesses[state.contactPartnerId ?? ''] ?? '').trim().toUpperCase();
     const block = (state.blockGuess ?? '').trim().toUpperCase();
 
-    const matched = !!initWord && !!partWord && initWord === partWord;
+    const matched =
+      !!initWord && !!partWord && initWord === partWord && !this.isUsedMatchWord(initWord, state);
     const blocked = !!block && (block === initWord || block === partWord);
 
     state.contactDeadline = undefined;
     this.contactCountSubject.next(null);
 
     if (blocked) {
+      this.addPoints(state, state.clueGiverId, BLOCK_POINTS);
       state.phase = 'BLOCKED';
       state.lastBlockWord = block;
       state.contactGuesses = {};
@@ -402,8 +415,14 @@ export class GameEngineService implements OnDestroy {
     }
 
     if (matched) {
-      const nextLen = Math.min(state.revealedPrefix.length + 1, state.secretWord.length);
-      state.revealedPrefix = state.secretWord.slice(0, nextLen);
+      const secretWord = state.secretWord.toUpperCase();
+      const wordGuessed = initWord === secretWord;
+      const partnerId = state.contactPartnerId;
+      const initiatorId = state.contactInitiatorId;
+
+      state.revealedPrefix = wordGuessed
+        ? secretWord
+        : state.secretWord.slice(0, Math.min(state.revealedPrefix.length + 1, state.secretWord.length));
       state.phase = 'LETTER_REVEAL';
       state.activeClues = [];
       state.contactGuesses = {};
@@ -411,6 +430,29 @@ export class GameEngineService implements OnDestroy {
       state.contactClueId = undefined;
       state.contactInitiatorId = undefined;
       state.contactPartnerId = undefined;
+
+      if (wordGuessed) {
+        this.awardRoundScores(state, partnerId, initiatorId);
+        this.overlaySubject.next('WORD_GUESSED');
+        this.setStateAndRelay('MATCH_RESULT', state, { matched: true, wordGuessed: true });
+
+        setTimeout(() => {
+          this.overlaySubject.next(null);
+          const s = this.state;
+          if (!s) return;
+          this.completeRound(s);
+        }, 2000);
+        return;
+      }
+
+      if (partnerId) {
+        this.addPoints(state, partnerId, CONTACT_MATCH_POINTS);
+      }
+      if (initiatorId) {
+        this.addPoints(state, initiatorId, CONTACT_MATCH_POINTS);
+      }
+      this.recordUsedMatchWord(state, initWord);
+
       this.overlaySubject.next('SUCCESS');
       this.setStateAndRelay('MATCH_RESULT', state, { matched: true });
 
@@ -437,23 +479,64 @@ export class GameEngineService implements OnDestroy {
     this.setStateAndRelay('MATCH_RESULT', state, { matched: false });
   }
 
+  private awardRoundScores(
+    state: GameState,
+    partnerId: string | undefined,
+    initiatorId: string | undefined,
+  ): void {
+    if (partnerId) {
+      this.addPoints(state, partnerId, CLUE_AUTHOR_POINTS);
+    }
+    if (initiatorId) {
+      this.addPoints(state, initiatorId, CONTACT_INITIATOR_POINTS);
+    }
+  }
+
+  private addPoints(state: GameState, playerId: string, points: number): void {
+    if (!state.scores) {
+      state.scores = {};
+      for (const p of state.players) {
+        state.scores[p.connectionId] = 0;
+      }
+    }
+    state.scores[playerId] = (state.scores[playerId] ?? 0) + points;
+  }
+
   private completeRound(state: GameState): void {
+    state.lastRoundWord = state.secretWord;
     state.phase = 'ROUND_COMPLETE';
     this.setStateAndRelay('ROUND_COMPLETE', state);
+  }
 
-    setTimeout(() => {
-      const approved = [...state.players].sort((a, b) => a.joinOrder - b.joinOrder);
-      const idx = approved.findIndex((p) => p.connectionId === state.clueGiverId);
-      const next = approved[(idx + 1) % approved.length];
-      state.clueGiverId = next.connectionId;
-      state.secretWord = '';
-      state.revealedPrefix = '';
-      state.activeClues = [];
-      state.canBlock = true;
-      state.currentRound += 1;
-      state.phase = 'WORD_SETUP';
-      this.setStateAndRelay('CLUE_GIVER_ROTATED', state);
-    }, 3000);
+  continueToNextRound(): void {
+    if (!this.isHost) return;
+    const state = this.state;
+    if (!state || state.phase !== 'ROUND_COMPLETE') return;
+
+    const approved = [...state.players].sort((a, b) => a.joinOrder - b.joinOrder);
+    const idx = approved.findIndex((p) => p.connectionId === state.clueGiverId);
+    const next = approved[(idx + 1) % approved.length];
+    state.clueGiverId = next.connectionId;
+    state.secretWord = '';
+    state.revealedPrefix = '';
+    state.activeClues = [];
+    state.canBlock = true;
+    state.currentRound += 1;
+    state.lastRoundWord = undefined;
+    state.usedMatchWords = [];
+    state.phase = 'WORD_SETUP';
+    this.setStateAndRelay('CLUE_GIVER_ROTATED', state);
+  }
+
+  private recordUsedMatchWord(state: GameState, word: string): void {
+    const normalized = word.trim().toUpperCase();
+    if (!normalized) return;
+    if (!state.usedMatchWords) {
+      state.usedMatchWords = [];
+    }
+    if (!state.usedMatchWords.includes(normalized)) {
+      state.usedMatchWords.push(normalized);
+    }
   }
 
   private setStateAndRelay(type: RelayPayload['type'], state: GameState, meta?: Record<string, unknown>): void {
@@ -536,6 +619,16 @@ export class GameEngineService implements OnDestroy {
 
   isGuesser(): boolean {
     return !!this.state && this.myId !== this.state.clueGiverId;
+  }
+
+  getUsedMatchWords(): string[] {
+    return this.state?.usedMatchWords ?? [];
+  }
+
+  isUsedMatchWord(word: string, state: GameState | null = this.state): boolean {
+    if (!state) return false;
+    const normalized = word.trim().toUpperCase();
+    return (state.usedMatchWords ?? []).includes(normalized);
   }
 
   getDisplayPrefix(): string {

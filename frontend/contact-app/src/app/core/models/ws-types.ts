@@ -45,6 +45,9 @@ export interface GameState {
   blockGuess?: string;
   currentRound: number;
   lastBlockWord?: string;
+  lastRoundWord?: string;
+  scores?: Record<string, number>;
+  usedMatchWords?: string[];
 }
 
 export type ClientAction =
@@ -107,6 +110,10 @@ export const CONTACT_COUNTDOWN_SECONDS = 15;
 export const VOTE_TIMEOUT_SECONDS = 15;
 export const SECRET_WORD_MIN = 4;
 export const SECRET_WORD_MAX = 12;
+export const CLUE_AUTHOR_POINTS = 50;
+export const CONTACT_INITIATOR_POINTS = 25;
+export const BLOCK_POINTS = 15;
+export const CONTACT_MATCH_POINTS = 15;
 
 export function isValidSecretWord(word: string): boolean {
   const trimmed = word.trim();
@@ -128,6 +135,10 @@ export function redactStateForPlayer(state: GameState, viewerId: string): GameSt
 
 export function createInitialState(players: Player[], hostId: string): GameState {
   const approved = players.filter((p) => p.status === 'approved').sort((a, b) => a.joinOrder - b.joinOrder);
+  const scores: Record<string, number> = {};
+  for (const p of approved) {
+    scores[p.connectionId] = 0;
+  }
   return {
     phase: 'LOBBY',
     players: approved,
@@ -137,5 +148,7 @@ export function createInitialState(players: Player[], hostId: string): GameState
     revealedPrefix: '',
     canBlock: true,
     currentRound: 1,
+    scores,
+    usedMatchWords: [],
   };
 }

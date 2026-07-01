@@ -1,0 +1,65 @@
+<div class="mx-auto flex min-h-full max-w-md flex-col gap-5 p-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-black">{{ 'SCOREBOARD_TITLE' | translate }}</h1>
+      <p class="text-yellow-bright">{{ roomCode }} · {{ 'ROUND_ENDED' | translate: { round: completedRound } }}</p>
+    </div>
+    <app-language-toggle />
+  </div>
+
+  @if (!state) {
+    <div class="card flex flex-col items-center gap-3 py-10 text-center">
+      <app-spinner size="lg" />
+      <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+    </div>
+  }
+
+  @if (state) {
+    @if (state.lastRoundWord) {
+      <div class="card text-center">
+        <p class="text-sm uppercase tracking-wide text-white/70">{{ 'THE_WORD_WAS' | translate }}</p>
+        <p class="text-4xl font-black tracking-widest text-yellow-bright">{{ state.lastRoundWord }}</p>
+      </div>
+    }
+
+    <div class="card flex flex-col gap-3">
+      <h2 class="text-xl font-bold">{{ 'SCORES' | translate }}</h2>
+      <ul class="flex flex-col gap-2">
+        @for (entry of rankedPlayers; track entry.player.connectionId) {
+          <li
+            class="flex items-center justify-between rounded-xl px-4 py-3"
+            [ngClass]="{
+              'bg-yellow-bright/20': entry.rank === 1,
+              'bg-white/10': entry.rank !== 1,
+              'ring-2 ring-mint': entry.player.connectionId === myId
+            }"
+          >
+            <div class="flex items-center gap-3">
+              <span class="w-8 text-center text-lg">{{ rankLabel(entry.rank) }}</span>
+              <span class="font-semibold" [class.font-black]="entry.player.connectionId === myId">
+                {{ entry.player.nickname }}
+              </span>
+            </div>
+            <span class="text-lg font-bold text-yellow-bright">{{ entry.score }} {{ 'PTS' | translate }}</span>
+          </li>
+        }
+      </ul>
+    </div>
+
+    @if (isHost) {
+      <app-loading-button
+        extraClass="mt-auto"
+        [loading]="continuing"
+        [showLoadingLabel]="true"
+        (pressed)="continueRound()"
+      >
+        {{ 'NEXT_ROUND' | translate }}
+      </app-loading-button>
+    } @else {
+      <p class="mt-auto flex items-center justify-center gap-2 text-center text-lg text-white/80">
+        <app-spinner size="sm" />
+        {{ 'WAITING_NEXT_ROUND' | translate }}
+      </p>
+    }
+  }
+</div>

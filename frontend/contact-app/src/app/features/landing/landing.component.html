@@ -4,7 +4,71 @@
     <app-language-toggle />
   </div>
 
-  <p class="text-lg text-white/80">Party word game — mobile first, real-time fun.</p>
+  <p class="text-lg text-white/80">{{ 'LANDING_TAGLINE' | translate }}</p>
+
+  <div class="card flex flex-col gap-3">
+    <button
+      type="button"
+      class="flex w-full items-center justify-between text-left"
+      (click)="guideOpen = !guideOpen"
+    >
+      <h2 class="text-xl font-bold">{{ 'GUIDE_TITLE' | translate }}</h2>
+      <span class="text-2xl font-bold text-yellow-bright">{{ guideOpen ? '−' : '+' }}</span>
+    </button>
+
+    @if (guideOpen) {
+      <div class="flex flex-col gap-4 border-t border-white/20 pt-4 text-sm text-white/90">
+        <p>{{ 'GUIDE_INTRO' | translate }}</p>
+
+        <div>
+          <h3 class="mb-2 font-bold text-yellow-bright">{{ 'GUIDE_SECTION_ROLES' | translate }}</h3>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>{{ 'GUIDE_ROLE_CLUE_GIVER' | translate }}</li>
+            <li>{{ 'GUIDE_ROLE_GUESSER' | translate }}</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="mb-2 font-bold text-yellow-bright">{{ 'GUIDE_SECTION_FLOW' | translate }}</h3>
+          <ol class="list-decimal space-y-1 pl-5">
+            <li>{{ 'GUIDE_FLOW_1' | translate }}</li>
+            <li>{{ 'GUIDE_FLOW_2' | translate }}</li>
+            <li>{{ 'GUIDE_FLOW_3' | translate }}</li>
+            <li>{{ 'GUIDE_FLOW_4' | translate }}</li>
+            <li>{{ 'GUIDE_FLOW_5' | translate }}</li>
+            <li>{{ 'GUIDE_FLOW_6' | translate }}</li>
+          </ol>
+        </div>
+
+        <div>
+          <h3 class="mb-2 font-bold text-yellow-bright">{{ 'GUIDE_SECTION_CONTACT' | translate }}</h3>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>{{ 'GUIDE_CONTACT_1' | translate }}</li>
+            <li>{{ 'GUIDE_CONTACT_2' | translate }}</li>
+            <li>{{ 'GUIDE_CONTACT_3' | translate }}</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="mb-2 font-bold text-yellow-bright">{{ 'GUIDE_SECTION_SCORING' | translate }}</h3>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>{{ 'GUIDE_SCORE_PARTIAL' | translate }}</li>
+            <li>{{ 'GUIDE_SCORE_WORD' | translate }}</li>
+            <li>{{ 'GUIDE_SCORE_BLOCK' | translate }}</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="mb-2 font-bold text-yellow-bright">{{ 'GUIDE_SECTION_RULES' | translate }}</h3>
+          <ul class="list-disc space-y-1 pl-5">
+            <li>{{ 'GUIDE_RULE_1' | translate }}</li>
+            <li>{{ 'GUIDE_RULE_2' | translate }}</li>
+            <li>{{ 'GUIDE_RULE_3' | translate }}</li>
+          </ul>
+        </div>
+      </div>
+    }
+  </div>
 
   <div class="card flex flex-col gap-4">
     <label class="flex flex-col gap-2">
@@ -14,6 +78,7 @@
         [(ngModel)]="nickname"
         [placeholder]="'NICKNAME_PLACEHOLDER' | translate"
         maxlength="20"
+        [disabled]="loading"
       />
     </label>
 
@@ -25,6 +90,7 @@
           [(ngModel)]="roomCode"
           [placeholder]="'ROOM_CODE_PLACEHOLDER' | translate"
           maxlength="5"
+          [disabled]="loading"
         />
       </label>
     }
@@ -34,19 +100,41 @@
     }
 
     @if (!joinMode) {
-      <button type="button" class="btn-primary w-full" [disabled]="loading" (click)="createGame()">
+      <app-loading-button
+        extraClass="w-full"
+        [loading]="loading"
+        [disabled]="!nickname.trim()"
+        [showLoadingLabel]="true"
+        (pressed)="createGame()"
+      >
         {{ 'CREATE_GAME' | translate }}
-      </button>
-      <button type="button" class="btn-secondary w-full" [disabled]="loading" (click)="showJoin()">
+      </app-loading-button>
+      <app-loading-button
+        variant="secondary"
+        extraClass="w-full"
+        [disabled]="loading"
+        (pressed)="showJoin()"
+      >
         {{ 'JOIN_GAME' | translate }}
-      </button>
+      </app-loading-button>
     } @else {
-      <button type="button" class="btn-primary w-full" [disabled]="loading" (click)="joinGame()">
+      <app-loading-button
+        extraClass="w-full"
+        [loading]="loading"
+        [disabled]="!nickname.trim() || roomCode.trim().length !== 5"
+        [showLoadingLabel]="true"
+        (pressed)="joinGame()"
+      >
         {{ 'JOIN' | translate }}
-      </button>
-      <button type="button" class="btn-secondary w-full" [disabled]="loading" (click)="cancelJoin()">
+      </app-loading-button>
+      <app-loading-button
+        variant="secondary"
+        extraClass="w-full"
+        [disabled]="loading"
+        (pressed)="cancelJoin()"
+      >
         {{ 'BACK' | translate }}
-      </button>
+      </app-loading-button>
     }
   </div>
 </div>
