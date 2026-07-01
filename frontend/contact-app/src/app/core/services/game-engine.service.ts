@@ -186,6 +186,7 @@ export class GameEngineService implements OnDestroy {
     if (this.isHost) {
       state.contactGuesses = { ...(state.contactGuesses ?? {}), [this.myId!]: normalized };
       this.stateSubject.next(state);
+      this.maybeResolveContactEarly(state);
     } else {
       this.ws.send('FORWARD_TO_HOST', { actionType: 'CONTACT_GUESS', word: normalized }, room.roomCode);
     }
@@ -405,6 +406,7 @@ export class GameEngineService implements OnDestroy {
         if (this.isUsedMatchWord(word, state)) return;
         state.contactGuesses = { ...(state.contactGuesses ?? {}), [action['senderId'] as string]: word };
         this.stateSubject.next(state);
+        this.maybeResolveContactEarly(state);
         break;
       }
       case 'BLOCK_GUESS': {
@@ -422,6 +424,8 @@ export class GameEngineService implements OnDestroy {
   private resolveContact(): void {
     const state = this.state;
     if (!state || !this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
+
+    this.stopContactCountdown();
 
     const guesses = state.contactGuesses ?? {};
     const initWord = (guesses[state.contactInitiatorId ?? ''] ?? '').trim().toUpperCase();
@@ -609,24 +613,41 @@ export class GameEngineService implements OnDestroy {
   }
 
   private startContactCountdown(): void {
-    this.tickSub?.unsubscribe();
+    this.stopContactCountdown();
     this.contactCountSubject.next(CONTACT_COUNTDOWN_SECONDS);
     this.tickSub = interval(1000).subscribe(() => {
       const current = this.contactCountSubject.value;
       if (current === null || this.state?.phase !== 'CONTACT_COUNTDOWN') {
-        this.tickSub?.unsubscribe();
-        this.tickSub = null;
+        this.stopContactCountdown();
         return;
       }
       if (current <= 1) {
         this.contactCountSubject.next(0);
-        this.tickSub?.unsubscribe();
-        this.tickSub = null;
+        this.stopContactCountdown();
         if (this.isHost) this.resolveContact();
       } else {
         this.contactCountSubject.next(current - 1);
       }
     });
+  }
+
+  private stopContactCountdown(): void {
+    this.tickSub?.unsubscribe();
+    this.tickSub = null;
+  }
+
+  private contactParticipantsReady(state: GameState): boolean {
+    const guesses = state.contactGuesses ?? {};
+    const initiatorId = state.contactInitiatorId;
+    const partnerId = state.contactPartnerId;
+    if (!initiatorId || !partnerId) return false;
+    return !!guesses[initiatorId]?.trim() && !!guesses[partnerId]?.trim();
+  }
+
+  private maybeResolveContactEarly(state: GameState): void {
+    if (!this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (!this.contactParticipantsReady(state)) return;
+    this.resolveContact();
   }
 
   private syncTimersFromState(state: GameState): void {
@@ -635,8 +656,7 @@ export class GameEngineService implements OnDestroy {
         this.startContactCountdown();
       }
     } else {
-      this.tickSub?.unsubscribe();
-      this.tickSub = null;
+      this.stopContactCountdown();
       this.contactCountSubject.next(null);
     }
   }
