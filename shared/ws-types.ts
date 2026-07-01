@@ -24,6 +24,7 @@ export interface ActiveClue {
   authorId: string;
   authorNickname: string;
   text: string;
+  usedWord?: string;
 }
 
 export interface GameState {

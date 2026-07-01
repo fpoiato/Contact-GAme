@@ -79,6 +79,7 @@
   "WORD_ALREADY_USED": "This word was already matched this round",
   "USED_WORDS": "Used words",
   "USED_WORDS_HINT": "These matched words cannot be used again this round",
+  "CLUE_WORD_USED": "Blocked word",
   "SUBMIT_WORD": "Submit Word",
   "WORD_LOCKED": "Locked in! Waiting for reveal…",
   "BLOCK_WORD": "Block word",

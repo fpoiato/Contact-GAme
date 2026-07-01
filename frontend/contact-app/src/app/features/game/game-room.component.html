@@ -117,12 +117,17 @@
           class="card flex flex-col gap-3"
           [class.border-2]="state.contactClueId === clue.id"
           [class.border-yellow-bright]="state.contactClueId === clue.id"
+          [class.opacity-70]="clue.usedWord"
         >
           <div>
             <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
             <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
+            @if (clue.usedWord) {
+              <p class="mt-2 text-sm text-white/70">{{ 'CLUE_WORD_USED' | translate }}</p>
+              <span class="mt-1 inline-block rounded-lg bg-coral/30 px-3 py-1 text-sm font-semibold uppercase">{{ clue.usedWord }}</span>
+            }
           </div>
-          @if (state.phase === 'CLUE_PHASE' && isGuesser && myId !== clue.authorId) {
+          @if (state.phase === 'CLUE_PHASE' && isGuesser && myId !== clue.authorId && !clue.usedWord) {
             <app-loading-button
               extraClass="animate-bounceBtn w-full py-4 text-2xl"
               spinnerSize="lg"

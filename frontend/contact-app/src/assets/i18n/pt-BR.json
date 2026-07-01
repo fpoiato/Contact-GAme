@@ -79,6 +79,7 @@
   "WORD_ALREADY_USED": "Esta palavra já foi usada nesta rodada",
   "USED_WORDS": "Palavras usadas",
   "USED_WORDS_HINT": "Estas palavras combinadas não podem ser usadas novamente nesta rodada",
+  "CLUE_WORD_USED": "Palavra bloqueada",
   "SUBMIT_WORD": "Enviar Palavra",
   "WORD_LOCKED": "Confirmado! Aguardando revelação…",
   "BLOCK_WORD": "Palavra de bloqueio",

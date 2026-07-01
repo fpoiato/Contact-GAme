@@ -437,6 +437,13 @@ export class GameEngineService implements OnDestroy {
 
     if (blocked) {
       this.addPoints(state, state.clueGiverId, BLOCK_POINTS);
+      this.recordUsedMatchWord(state, block);
+      const blockedClueId = state.contactClueId;
+      if (blockedClueId && state.activeClues) {
+        state.activeClues = state.activeClues.map((clue) =>
+          clue.id === blockedClueId ? { ...clue, usedWord: block } : clue,
+        );
+      }
       state.phase = 'BLOCKED';
       state.lastBlockWord = block;
       state.contactGuesses = {};
