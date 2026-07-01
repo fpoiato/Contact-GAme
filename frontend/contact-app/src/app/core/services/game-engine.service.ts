@@ -5,6 +5,7 @@ import {
   ActiveClue,
   BLOCK_POINTS,
   CLUE_AUTHOR_POINTS,
+  CLUE_LIFETIME_SECONDS,
   CLUE_TIMER_SECONDS,
   CONTACT_COUNTDOWN_SECONDS,
   CONTACT_INITIATOR_POINTS,
@@ -34,6 +35,7 @@ export class GameEngineService implements OnDestroy {
   private readonly reconnectGraceSubject = new BehaviorSubject<number | null>(null);
 
   private tickSub: Subscription | null = null;
+  private clueExpiryTickSub: Subscription | null = null;
   private reconnectGraceTickSub: Subscription | null = null;
   private hostRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private gameStateRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -110,6 +112,7 @@ export class GameEngineService implements OnDestroy {
       state.revealedPrefix = normalized[0];
       state.phase = 'CLUE_PHASE';
       state.activeClues = [];
+      state.expiredClues = [];
       state.usedMatchWords = [];
       this.setStateAndRelay('SECRET_WORD_SET', state);
     } else {
@@ -149,12 +152,7 @@ export class GameEngineService implements OnDestroy {
     if (!trimmed) return;
 
     if (this.isHost) {
-      const clue: ActiveClue = {
-        id: crypto.randomUUID(),
-        authorId: room.connectionId,
-        authorNickname: room.nickname,
-        text: trimmed,
-      };
+      const clue = this.buildClue(room.connectionId, room.nickname, trimmed);
       state.activeClues = [...(state.activeClues ?? []), clue];
       state.clueDeadline = undefined;
       this.clueInputOpenSubject.next(false);
@@ -175,7 +173,7 @@ export class GameEngineService implements OnDestroy {
     const state = this.state;
     const room = this.roomService.room;
     if (state?.phase !== 'CLUE_PHASE') return;
-    const clue = state.activeClues?.find((c) => c.id === clueId);
+    const clue = this.findContactableClue(state, clueId);
     if (!clue) return;
     if (this.myId === state.clueGiverId) return;
     if (this.myId === clue.authorId) return;
@@ -196,6 +194,20 @@ export class GameEngineService implements OnDestroy {
         initiatorId: room!.connectionId,
         clueId,
       }, room!.roomCode);
+    }
+  }
+
+  abandonContact(): void {
+    const state = this.state;
+    const room = this.roomService.room;
+    if (!state || !room || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (this.myId !== state.contactInitiatorId) return;
+
+    if (this.isHost) {
+      this.cancelContact(state);
+      this.setStateAndRelay('CONTACT_ABANDONED', state);
+    } else {
+      this.ws.send('FORWARD_TO_HOST', { actionType: 'CONTACT_ABANDONED' }, room.roomCode);
     }
   }
 
@@ -272,6 +284,7 @@ export class GameEngineService implements OnDestroy {
 
   ngOnDestroy(): void {
     this.tickSub?.unsubscribe();
+    this.clueExpiryTickSub?.unsubscribe();
     this.reconnectGraceTickSub?.unsubscribe();
     this.messageSub?.unsubscribe();
     if (this.hostRecoveryTimer) clearTimeout(this.hostRecoveryTimer);
@@ -349,6 +362,12 @@ export class GameEngineService implements OnDestroy {
       this.overlaySubject.next('WORD_GUESSED');
     } else if (relay.type === 'MATCH_RESULT' && relay.meta?.['matched']) {
       this.overlaySubject.next('SUCCESS');
+    } else if (relay.type === 'CONTACT_ABANDONED' || relay.type === 'CLUE_EXPIRED') {
+      if (relay.state.phase === 'CLUE_PHASE') {
+        this.overlaySubject.next(null);
+        this.stopContactCountdown();
+        this.contactCountSubject.next(null);
+      }
     } else if (relay.state.phase === 'CLUE_PHASE' || relay.state.phase === 'WORD_SETUP') {
       this.overlaySubject.next(null);
     }
@@ -360,19 +379,18 @@ export class GameEngineService implements OnDestroy {
 
     switch (relay.type) {
       case 'CLUE_SUBMITTED': {
-        const clue: ActiveClue = {
-          id: crypto.randomUUID(),
-          authorId: meta['authorId'] as string,
-          authorNickname: meta['authorNickname'] as string,
-          text: meta['clueText'] as string,
-        };
+        const clue = this.buildClue(
+          meta['authorId'] as string,
+          meta['authorNickname'] as string,
+          meta['clueText'] as string,
+        );
         state.activeClues = [...(state.activeClues ?? []), clue];
         state.phase = 'CLUE_PHASE';
         break;
       }
       case 'CONTACT_INITIATED': {
         const clueId = meta['clueId'] as string;
-        const clue = state.activeClues?.find((c) => c.id === clueId);
+        const clue = this.findContactableClue(state, clueId);
         if (!clue) return;
         state.phase = 'CONTACT_COUNTDOWN';
         state.contactInitiatorId = meta['initiatorId'] as string;
@@ -402,17 +420,17 @@ export class GameEngineService implements OnDestroy {
         state.revealedPrefix = normalized[0];
         state.phase = 'CLUE_PHASE';
         state.activeClues = [];
+        state.expiredClues = [];
         state.usedMatchWords = [];
         this.setStateAndRelay('SECRET_WORD_SET', state);
         break;
       }
       case 'CLUE_SUBMITTED': {
-        const clue: ActiveClue = {
-          id: crypto.randomUUID(),
-          authorId: action['authorId'] as string,
-          authorNickname: action['authorNickname'] as string,
-          text: action['clueText'] as string,
-        };
+        const clue = this.buildClue(
+          action['authorId'] as string,
+          action['authorNickname'] as string,
+          action['clueText'] as string,
+        );
         state.activeClues = [...(state.activeClues ?? []), clue];
         state.phase = 'CLUE_PHASE';
         this.setStateAndRelay('CLUE_SUBMITTED', state);
@@ -420,7 +438,7 @@ export class GameEngineService implements OnDestroy {
       }
       case 'CONTACT_INITIATED': {
         const clueId = action['clueId'] as string;
-        const clue = state.activeClues?.find((c) => c.id === clueId);
+        const clue = this.findContactableClue(state, clueId);
         if (state.phase !== 'CLUE_PHASE' || !clue) return;
         state.phase = 'CONTACT_COUNTDOWN';
         state.contactInitiatorId = action['initiatorId'] as string;
@@ -452,6 +470,13 @@ export class GameEngineService implements OnDestroy {
         if (!word) return;
         state.blockGuess = word;
         this.stateSubject.next(state);
+        break;
+      }
+      case 'CONTACT_ABANDONED': {
+        if (state.phase !== 'CONTACT_COUNTDOWN') return;
+        if (action['senderId'] !== state.contactInitiatorId) return;
+        this.cancelContact(state);
+        this.setStateAndRelay('CONTACT_ABANDONED', state);
         break;
       }
     }
@@ -613,6 +638,7 @@ export class GameEngineService implements OnDestroy {
     state.secretWord = '';
     state.revealedPrefix = '';
     state.activeClues = [];
+    state.expiredClues = [];
     state.canBlock = true;
     state.currentRound += 1;
     state.lastRoundWord = undefined;
@@ -640,6 +666,8 @@ export class GameEngineService implements OnDestroy {
 
     const redacted = this.redactForBroadcast(state);
     this.ws.send('RELAY', { type, state: redacted, meta }, room.roomCode);
+    this.ensureClueExpiryRunning();
+    this.ensureContactCountdownRunning();
   }
 
   private redactForBroadcast(state: GameState): GameState {
@@ -742,6 +770,7 @@ export class GameEngineService implements OnDestroy {
       this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
     }
     this.ensureContactCountdownRunning();
+    this.ensureClueExpiryRunning();
   }
 
   private handlePlayerApproved(player: Player): void {
@@ -825,6 +854,9 @@ export class GameEngineService implements OnDestroy {
       delete state.contactGuesses[oldId];
     }
     state.activeClues = state.activeClues?.map((clue) =>
+      clue.authorId === oldId ? { ...clue, authorId: newId } : clue
+    );
+    state.expiredClues = state.expiredClues?.map((clue) =>
       clue.authorId === oldId ? { ...clue, authorId: newId } : clue
     );
   }
@@ -932,6 +964,7 @@ export class GameEngineService implements OnDestroy {
     const disconnectedId = state.awaitingRejoin?.connectionId;
     this.clearReconnectGraceTimer();
     this.stopContactCountdown();
+    this.stopClueExpiryTimer();
     this.overlaySubject.next(null);
     this.clueInputOpenSubject.next(false);
     this.clueSecondsSubject.next(null);
@@ -947,6 +980,7 @@ export class GameEngineService implements OnDestroy {
     state.secretWord = '';
     state.revealedPrefix = '';
     state.activeClues = [];
+    state.expiredClues = [];
     state.usedMatchWords = [];
     state.contactInitiatorId = undefined;
     state.contactPartnerId = undefined;
@@ -974,6 +1008,17 @@ export class GameEngineService implements OnDestroy {
     const myId = this.myId;
     if (!state || !myId || !this.isActiveInRound()) return false;
     return myId === state.contactInitiatorId || myId === state.contactPartnerId;
+  }
+
+  isContactInitiator(): boolean {
+    const state = this.state;
+    const myId = this.myId;
+    if (!state || !myId || !this.isActiveInRound()) return false;
+    return myId === state.contactInitiatorId;
+  }
+
+  getClueSecondsRemaining(clue: ActiveClue): number {
+    return Math.max(0, Math.ceil((clue.expiresAt - Date.now()) / 1000));
   }
 
   isClueGiver(): boolean {
@@ -1014,5 +1059,99 @@ export class GameEngineService implements OnDestroy {
     if (!state) return '';
     if (this.isClueGiver()) return state.secretWord || state.revealedPrefix;
     return state.revealedPrefix || (state.secretWord ? state.secretWord[0] : '?');
+  }
+
+  private buildClue(authorId: string, authorNickname: string, text: string): ActiveClue {
+    return {
+      id: crypto.randomUUID(),
+      authorId,
+      authorNickname,
+      text,
+      expiresAt: Date.now() + CLUE_LIFETIME_SECONDS * 1000,
+    };
+  }
+
+  private findContactableClue(state: GameState, clueId: string): ActiveClue | undefined {
+    return state.activeClues?.find(
+      (c) => c.id === clueId && !c.usedWord && c.expiresAt > Date.now(),
+    );
+  }
+
+  private cancelContact(state: GameState): void {
+    this.stopContactCountdown();
+    state.phase = 'CLUE_PHASE';
+    state.contactGuesses = {};
+    state.blockGuess = undefined;
+    state.contactClueId = undefined;
+    state.contactInitiatorId = undefined;
+    state.contactPartnerId = undefined;
+    state.contactDeadline = undefined;
+    this.contactCountSubject.next(null);
+  }
+
+  private expireClues(state: GameState): boolean {
+    const now = Date.now();
+    const active = state.activeClues ?? [];
+    const stillActive: ActiveClue[] = [];
+    const newlyExpired: ActiveClue[] = [];
+
+    for (const clue of active) {
+      if (clue.expiresAt <= now) {
+        newlyExpired.push(clue);
+      } else {
+        stillActive.push(clue);
+      }
+    }
+
+    if (newlyExpired.length === 0) return false;
+
+    state.activeClues = stillActive;
+    state.expiredClues = [...(state.expiredClues ?? []), ...newlyExpired];
+
+    if (
+      state.phase === 'CONTACT_COUNTDOWN' &&
+      state.contactClueId &&
+      newlyExpired.some((c) => c.id === state.contactClueId)
+    ) {
+      this.cancelContact(state);
+    }
+
+    return true;
+  }
+
+  private ensureClueExpiryRunning(): void {
+    if (!this.isHost) return;
+    const state = this.state;
+    if (!state) return;
+
+    const shouldRun = state.phase === 'CLUE_PHASE' || state.phase === 'CONTACT_COUNTDOWN' || state.phase === 'BLOCKED';
+    if (!shouldRun) {
+      this.stopClueExpiryTimer();
+      return;
+    }
+
+    if (this.clueExpiryTickSub) return;
+
+    this.clueExpiryTickSub = interval(1000).subscribe(() => {
+      const current = this.state;
+      if (
+        !current ||
+        (current.phase !== 'CLUE_PHASE' &&
+          current.phase !== 'CONTACT_COUNTDOWN' &&
+          current.phase !== 'BLOCKED')
+      ) {
+        this.stopClueExpiryTimer();
+        return;
+      }
+
+      if (this.expireClues(current)) {
+        this.setStateAndRelay('CLUE_EXPIRED', current);
+      }
+    });
+  }
+
+  private stopClueExpiryTimer(): void {
+    this.clueExpiryTickSub?.unsubscribe();
+    this.clueExpiryTickSub = null;
   }
 }

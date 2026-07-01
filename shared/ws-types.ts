@@ -25,6 +25,7 @@ export interface ActiveClue {
   authorNickname: string;
   text: string;
   usedWord?: string;
+  expiresAt: number;
 }
 
 export interface GameState {
@@ -35,6 +36,7 @@ export interface GameState {
   secretWord: string;
   revealedPrefix: string;
   activeClues?: ActiveClue[];
+  expiredClues?: ActiveClue[];
   contactInitiatorId?: string;
   contactPartnerId?: string;
   contactClueId?: string;
@@ -80,6 +82,8 @@ export type RelayEventType =
   | 'SECRET_WORD_SET'
   | 'CLUE_SUBMITTED'
   | 'CONTACT_INITIATED'
+  | 'CONTACT_ABANDONED'
+  | 'CLUE_EXPIRED'
   | 'CONTACT_BLOCKED'
   | 'MATCH_VOTE_STARTED'
   | 'MATCH_RESULT'
@@ -144,6 +148,7 @@ export interface HostStateResponsePayload {
 export const MAX_PLAYERS = 12;
 export const MIN_PLAYERS = 3;
 export const CLUE_TIMER_SECONDS = 45;
+export const CLUE_LIFETIME_SECONDS = 45;
 export const CONTACT_COUNTDOWN_SECONDS = 30;
 export const VOTE_TIMEOUT_SECONDS = 30;
 export const RECONNECT_GRACE_SECONDS = 60;

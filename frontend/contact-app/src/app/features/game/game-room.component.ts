@@ -1,10 +1,10 @@
 import { NgClass } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
-import { GameState, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
+import { GameState, ActiveClue, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
@@ -22,6 +22,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly gameEngine = inject(GameEngineService);
   private readonly roomService = inject(RoomService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   roomCode = '';
   state: GameState | null = null;
@@ -41,9 +42,11 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   contactingClueId: string | null = null;
   submittingGuess = false;
   submittingBlock = false;
+  submittingAbandon = false;
 
   loadError = false;
   scoresOpen = false;
+  historyOpen = false;
   reconnectGrace: number | null = null;
   pending: Player[] = [];
   approvingIds = new Set<string>();
@@ -52,6 +55,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   private prevPhase: string | null = null;
   private subs: Subscription[] = [];
+  private clueDisplayTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
     this.gameEngine.init();
@@ -71,6 +75,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
           this.guessWordError = false;
           this.submittingGuess = false;
           this.submittingBlock = false;
+          this.submittingAbandon = false;
         }
         if (this.settingWord && s?.phase !== 'WORD_SETUP') {
           this.settingWord = false;
@@ -85,6 +90,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
           this.router.navigate(['/lobby', this.roomCode]);
         }
         this.prevPhase = s?.phase ?? null;
+        this.syncClueDisplayTimer(s);
       }),
       this.gameEngine.reconnectGrace$.subscribe((g) => (this.reconnectGrace = g)),
       this.gameEngine.overlay$.subscribe((o) => (this.overlay = o)),
@@ -134,6 +140,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopClueDisplayTimer();
     this.subs.forEach((s) => s.unsubscribe());
   }
 
@@ -171,6 +178,10 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   get isGuesser(): boolean {
     return this.gameEngine.isGuesser();
+  }
+
+  get isContactInitiator(): boolean {
+    return this.gameEngine.isContactInitiator();
   }
 
   get isContactParticipant(): boolean {
@@ -242,6 +253,29 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.clearLoadingAfter(() => (this.submittingGuess = false));
   }
 
+  abandonContact(): void {
+    if (this.submittingAbandon) return;
+    this.submittingAbandon = true;
+    this.gameEngine.abandonContact();
+    this.clearLoadingAfter(() => (this.submittingAbandon = false));
+  }
+
+  clueSecondsRemaining(clue: ActiveClue): number {
+    return this.gameEngine.getClueSecondsRemaining(clue);
+  }
+
+  get expiredClues(): ActiveClue[] {
+    return this.state?.expiredClues ?? [];
+  }
+
+  toggleHistory(): void {
+    this.historyOpen = !this.historyOpen;
+  }
+
+  closeHistory(): void {
+    this.historyOpen = false;
+  }
+
   submitBlock(): void {
     if (!this.blockWord.trim() || this.submittingBlock) return;
     this.submittingBlock = true;
@@ -305,6 +339,29 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   closeScores(): void {
     this.scoresOpen = false;
+  }
+
+  private syncClueDisplayTimer(state: GameState | null): void {
+    const shouldRun =
+      !!state &&
+      (state.phase === 'CLUE_PHASE' || state.phase === 'CONTACT_COUNTDOWN') &&
+      ((state.activeClues?.length ?? 0) > 0 || (state.expiredClues?.length ?? 0) > 0);
+
+    if (!shouldRun) {
+      this.stopClueDisplayTimer();
+      return;
+    }
+
+    if (this.clueDisplayTimer) return;
+
+    this.clueDisplayTimer = setInterval(() => this.cdr.markForCheck(), 1000);
+  }
+
+  private stopClueDisplayTimer(): void {
+    if (this.clueDisplayTimer) {
+      clearInterval(this.clueDisplayTimer);
+      this.clueDisplayTimer = null;
+    }
   }
 
   private clearActionLoading(id: string, action: 'approve' | 'reject'): void {

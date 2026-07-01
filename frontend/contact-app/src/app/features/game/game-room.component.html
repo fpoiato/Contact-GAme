@@ -8,6 +8,22 @@
     </div>
     <div class="flex items-center gap-2">
       @if (state && state.phase !== 'ROUND_COMPLETE') {
+        @if (expiredClues.length) {
+          <button
+            type="button"
+            class="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-95"
+            [class.ring-yellow-bright]="historyOpen"
+            [attr.aria-label]="'CLUE_HISTORY' | translate"
+            (click)="toggleHistory()"
+          >
+            <svg class="h-5 w-5 text-yellow-bright" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="absolute -bottom-1 -right-1 min-w-[1.25rem] rounded-full bg-white/20 px-1 text-[10px] font-black leading-4 text-yellow-bright">
+              {{ expiredClues.length }}
+            </span>
+          </button>
+        }
         <button
           type="button"
           class="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-95"
@@ -120,7 +136,12 @@
           [class.opacity-70]="clue.usedWord"
         >
           <div>
-            <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+              @if (state.phase === 'CLUE_PHASE' || state.phase === 'CONTACT_COUNTDOWN') {
+                <span class="text-sm font-bold text-yellow-bright">{{ 'CLUE_LIFETIME' | translate: { seconds: clueSecondsRemaining(clue) } }}</span>
+              }
+            </div>
             <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
             @if (clue.usedWord) {
               <p class="mt-2 text-sm text-white/70">{{ 'CLUE_WORD_USED' | translate }}</p>
@@ -154,6 +175,18 @@
         <p class="text-sm uppercase tracking-wide text-white/70">{{ 'COUNTDOWN_ACTIVE' | translate }}</p>
         <p class="text-7xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
       </div>
+
+      @if (isContactInitiator) {
+        <app-loading-button
+          variant="secondary"
+          extraClass="w-full"
+          [loading]="submittingAbandon"
+          [showLoadingLabel]="true"
+          (pressed)="abandonContact()"
+        >
+          {{ 'ABANDON_CONTACT' | translate }}
+        </app-loading-button>
+      }
 
       @if (isContactParticipant) {
         <div class="card flex flex-col gap-2">
@@ -223,6 +256,36 @@
       }
     }
 
+  }
+
+  @if (historyOpen && state) {
+    <div class="overlay" (click)="closeHistory()">
+      <div class="card w-full max-w-sm flex max-h-[70vh] flex-col gap-3" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">{{ 'CLUE_HISTORY' | translate }}</h2>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg font-bold transition hover:bg-white/20"
+            [attr.aria-label]="'CLOSE' | translate"
+            (click)="closeHistory()"
+          >
+            ×
+          </button>
+        </div>
+        <p class="text-sm text-white/70">{{ 'CLUE_HISTORY_HINT' | translate }}</p>
+        <ul class="flex flex-col gap-2 overflow-y-auto">
+          @for (clue of expiredClues; track clue.id) {
+            <li class="rounded-xl bg-white/10 px-4 py-3">
+              <p class="text-xs text-white/60">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+              <p class="mt-1 font-semibold">"{{ clue.text }}"</p>
+              @if (clue.usedWord) {
+                <span class="mt-2 inline-block rounded-lg bg-coral/30 px-2 py-0.5 text-xs font-semibold uppercase">{{ clue.usedWord }}</span>
+              }
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
   }
 
   @if (scoresOpen && state) {
