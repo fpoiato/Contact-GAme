@@ -39,7 +39,6 @@ export class GameEngineService implements OnDestroy {
   private gameStateRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectGraceTimer: ReturnType<typeof setTimeout> | null = null;
   private messageSub: Subscription | null = null;
-  private pendingDisconnect: { connectionId: string; nickname: string } | null = null;
   private readonly stateRecoveryFailedSubject = new BehaviorSubject<boolean>(false);
 
   readonly stateRecoveryFailed$ = this.stateRecoveryFailedSubject.asObservable();
@@ -212,7 +211,7 @@ export class GameEngineService implements OnDestroy {
     if (this.isHost) {
       state.contactGuesses = { ...(state.contactGuesses ?? {}), [this.myId!]: normalized };
       this.stateSubject.next(state);
-      this.maybeResolveContactEarly(state);
+      this.maybeResolveContactEarly();
     } else {
       this.ws.send('FORWARD_TO_HOST', { actionType: 'CONTACT_GUESS', word: normalized }, room.roomCode);
     }
@@ -443,7 +442,7 @@ export class GameEngineService implements OnDestroy {
         if (this.isUsedMatchWord(word, state)) return;
         state.contactGuesses = { ...(state.contactGuesses ?? {}), [action['senderId'] as string]: word };
         this.stateSubject.next(state);
-        this.maybeResolveContactEarly(state);
+        this.maybeResolveContactEarly();
         break;
       }
       case 'BLOCK_GUESS': {
@@ -461,6 +460,7 @@ export class GameEngineService implements OnDestroy {
   private resolveContact(): void {
     const state = this.state;
     if (!state || !this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (state.awaitingRejoin) return;
 
     this.stopContactCountdown();
 
@@ -681,10 +681,41 @@ export class GameEngineService implements OnDestroy {
     return !!guesses[initiatorId]?.trim() && !!guesses[partnerId]?.trim();
   }
 
-  private maybeResolveContactEarly(state: GameState): void {
-    if (!this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
+  private maybeResolveContactEarly(): void {
+    const state = this.state;
+    if (!state || !this.isHost || state.phase !== 'CONTACT_COUNTDOWN') return;
+    if (state.awaitingRejoin) return;
     if (!this.contactParticipantsReady(state)) return;
     this.resolveContact();
+  }
+
+  private ensureContactCountdownRunning(): void {
+    if (!this.isHost) return;
+    const state = this.state;
+    if (!state || state.phase !== 'CONTACT_COUNTDOWN' || state.awaitingRejoin) return;
+    if (this.tickSub) return;
+
+    const deadline = state.contactDeadline;
+    if (deadline && deadline > Date.now()) {
+      const remaining = Math.max(1, Math.ceil((deadline - Date.now()) / 1000));
+      this.contactCountSubject.next(remaining);
+      this.tickSub = interval(1000).subscribe(() => {
+        const current = this.contactCountSubject.value;
+        if (current === null || this.state?.phase !== 'CONTACT_COUNTDOWN') {
+          this.stopContactCountdown();
+          return;
+        }
+        if (current <= 1) {
+          this.contactCountSubject.next(0);
+          this.stopContactCountdown();
+          if (this.isHost) this.resolveContact();
+        } else {
+          this.contactCountSubject.next(current - 1);
+        }
+      });
+    } else {
+      this.startContactCountdown();
+    }
   }
 
   private syncTimersFromState(state: GameState): void {
@@ -710,7 +741,7 @@ export class GameEngineService implements OnDestroy {
     if (this.isHost && state.awaitingRejoin) {
       this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
     }
-    this.flushPendingDisconnect();
+    this.ensureContactCountdownRunning();
   }
 
   private handlePlayerApproved(player: Player): void {
@@ -770,6 +801,12 @@ export class GameEngineService implements OnDestroy {
     ) {
       state.awaitingRejoin = undefined;
       this.clearReconnectGraceTimer();
+      this.syncReconnectGrace(state);
+    }
+
+    if (state.phase === 'CONTACT_COUNTDOWN') {
+      this.ensureContactCountdownRunning();
+      this.maybeResolveContactEarly();
     }
 
     this.setStateAndRelay('STATE_SYNC', state);
@@ -780,6 +817,13 @@ export class GameEngineService implements OnDestroy {
     if (state.hostId === oldId) state.hostId = newId;
     if (state.contactInitiatorId === oldId) state.contactInitiatorId = newId;
     if (state.contactPartnerId === oldId) state.contactPartnerId = newId;
+    if (state.contactGuesses?.[oldId]) {
+      state.contactGuesses = {
+        ...state.contactGuesses,
+        [newId]: state.contactGuesses[oldId],
+      };
+      delete state.contactGuesses[oldId];
+    }
     state.activeClues = state.activeClues?.map((clue) =>
       clue.authorId === oldId ? { ...clue, authorId: newId } : clue
     );
@@ -796,32 +840,38 @@ export class GameEngineService implements OnDestroy {
     if (this.isHost && state.awaitingRejoin) {
       this.scheduleReconnectGraceExpiry(state.awaitingRejoin.deadlineAt);
     }
-    this.flushPendingDisconnect();
+    this.ensureContactCountdownRunning();
   }
 
   private handlePlayerDisconnected(payload: { connectionId: string; nickname: string }): void {
     if (!this.isHost) return;
     const state = this.state;
-    if (!state || state.phase === 'LOBBY') {
-      this.pendingDisconnect = payload;
-      return;
-    }
-    this.applyDisconnectGrace(payload);
-  }
-
-  private flushPendingDisconnect(): void {
-    if (!this.pendingDisconnect || !this.isHost) return;
-    const state = this.state;
     if (!state || state.phase === 'LOBBY') return;
-    this.applyDisconnectGrace(this.pendingDisconnect);
-    this.pendingDisconnect = null;
+
+    const player = state.players.find((p) => p.connectionId === payload.connectionId);
+    if (!player || player.activeInRound === false) return;
+
+    this.applyDisconnectGrace(payload);
   }
 
   private applyDisconnectGrace(payload: { connectionId: string; nickname: string }): void {
     const state = this.state;
     if (!state || state.phase === 'LOBBY') return;
 
-    this.stopContactCountdown();
+    const affectsContact =
+      state.phase === 'CONTACT_COUNTDOWN' &&
+      (payload.connectionId === state.contactInitiatorId ||
+        payload.connectionId === state.contactPartnerId ||
+        payload.connectionId === state.clueGiverId);
+
+    if (state.phase === 'CONTACT_COUNTDOWN' && !affectsContact) {
+      return;
+    }
+
+    if (affectsContact) {
+      this.stopContactCountdown();
+    }
+
     this.clueInputOpenSubject.next(false);
     this.clueSecondsSubject.next(null);
 
@@ -885,7 +935,6 @@ export class GameEngineService implements OnDestroy {
     this.overlaySubject.next(null);
     this.clueInputOpenSubject.next(false);
     this.clueSecondsSubject.next(null);
-    this.pendingDisconnect = null;
 
     if (disconnectedId) {
       state.players = state.players.filter((p) => p.connectionId !== disconnectedId);
