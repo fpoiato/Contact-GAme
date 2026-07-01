@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
-import { GameState, isValidSecretWord, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
+import { GameState, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
@@ -44,6 +44,9 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   loadError = false;
   scoresOpen = false;
+  pending: Player[] = [];
+  approvingIds = new Set<string>();
+  rejectingIds = new Set<string>();
   private sessionReady = false;
 
   private prevPhase: string | null = null;
@@ -53,6 +56,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.gameEngine.init();
     this.roomCode = this.route.snapshot.paramMap.get('roomCode') ?? '';
     void this.initSession();
+    this.subs.push(this.roomService.listenForLobbyUpdates().subscribe());
 
     this.subs.push(
       this.gameEngine.state$.subscribe((s) => {
@@ -91,6 +95,17 @@ export class GameRoomComponent implements OnInit, OnDestroy {
       this.gameEngine.stateRecoveryFailed$.subscribe((failed) => {
         if (failed) this.loadError = true;
       }),
+      this.roomService.pending$.subscribe((p) => {
+        this.pending = p;
+        const pendingIds = new Set(p.map((x) => x.connectionId));
+        this.approvingIds = new Set([...this.approvingIds].filter((id) => pendingIds.has(id)));
+        this.rejectingIds = new Set([...this.rejectingIds].filter((id) => pendingIds.has(id)));
+      }),
+      this.roomService.room$.subscribe((r) => {
+        if (r && !this.isHost && !this.roomService.isAwaitingApproval() && !this.state) {
+          this.ensureGameStateLoaded();
+        }
+      }),
     );
   }
 
@@ -115,6 +130,34 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
+  }
+
+  get isSpectating(): boolean {
+    return this.gameEngine.isSpectating();
+  }
+
+  get isHost(): boolean {
+    return this.roomService.room?.isHost ?? false;
+  }
+
+  approve(id: string): void {
+    this.approvingIds.add(id);
+    this.roomService.approvePlayer(id);
+    this.clearActionLoading(id, 'approve');
+  }
+
+  reject(id: string): void {
+    this.rejectingIds.add(id);
+    this.roomService.rejectPlayer(id);
+    this.clearActionLoading(id, 'reject');
+  }
+
+  isApproving(id: string): boolean {
+    return this.approvingIds.has(id);
+  }
+
+  isRejecting(id: string): boolean {
+    return this.rejectingIds.has(id);
   }
 
   get isClueGiver(): boolean {
@@ -257,5 +300,12 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   closeScores(): void {
     this.scoresOpen = false;
+  }
+
+  private clearActionLoading(id: string, action: 'approve' | 'reject'): void {
+    setTimeout(() => {
+      if (action === 'approve') this.approvingIds.delete(id);
+      else this.rejectingIds.delete(id);
+    }, 5000);
   }
 }

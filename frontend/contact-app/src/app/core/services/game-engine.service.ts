@@ -12,6 +12,8 @@ import {
   GameState,
   isValidSecretWord,
   MIN_PLAYERS,
+  Player,
+  redactStateForPlayer,
   RelayPayload,
 } from '../models/ws-types';
 import { RoomService } from './room.service';
@@ -270,6 +272,11 @@ export class GameEngineService implements OnDestroy {
         break;
       case 'GAME_STATE_RESPONSE':
         this.applyRejoinedState((payload as { state: GameState }).state);
+        break;
+      case 'PLAYER_APPROVED':
+        if (this.isHost) {
+          this.handlePlayerApproved(payload as Player);
+        }
         break;
       case 'PLAYER_REJOINED':
         if (this.isHost) this.handlePlayerRejoined(payload as Record<string, unknown>);
@@ -549,7 +556,9 @@ export class GameEngineService implements OnDestroy {
     const state = this.state;
     if (!state || state.phase !== 'ROUND_COMPLETE') return;
 
-    const approved = [...state.players].sort((a, b) => a.joinOrder - b.joinOrder);
+    const approved = state.players
+      .filter((p) => p.activeInRound !== false)
+      .sort((a, b) => a.joinOrder - b.joinOrder);
     const idx = approved.findIndex((p) => p.connectionId === state.clueGiverId);
     const next = approved[(idx + 1) % approved.length];
     state.clueGiverId = next.connectionId;
@@ -560,6 +569,7 @@ export class GameEngineService implements OnDestroy {
     state.currentRound += 1;
     state.lastRoundWord = undefined;
     state.usedMatchWords = [];
+    state.players = state.players.map((p) => ({ ...p, activeInRound: true }));
     state.phase = 'WORD_SETUP';
     this.setStateAndRelay('CLUE_GIVER_ROTATED', state);
   }
@@ -634,6 +644,32 @@ export class GameEngineService implements OnDestroy {
     this.syncTimersFromState(state);
   }
 
+  private handlePlayerApproved(player: Player): void {
+    const state = this.state;
+    const room = this.roomService.room;
+    if (!state || !room || !this.isHost) return;
+    if (state.players.some((p) => p.connectionId === player.connectionId)) return;
+
+    const gameInProgress = state.phase !== 'LOBBY';
+    const newPlayer: Player = {
+      ...player,
+      status: 'approved',
+      activeInRound: !gameInProgress,
+    };
+
+    state.players = [...state.players, newPlayer].sort((a, b) => a.joinOrder - b.joinOrder);
+    this.addPoints(state, player.connectionId, 0);
+    this.setStateAndRelay('STATE_SYNC', state);
+
+    if (gameInProgress) {
+      this.ws.send(
+        'GAME_STATE_RESPONSE',
+        { targetId: player.connectionId, state: redactStateForPlayer(state, player.connectionId) },
+        room.roomCode,
+      );
+    }
+  }
+
   private handlePlayerRejoined(payload: Record<string, unknown>): void {
     const state = this.state;
     if (!state || !this.isHost) return;
@@ -692,16 +728,31 @@ export class GameEngineService implements OnDestroy {
   isContactParticipant(): boolean {
     const state = this.state;
     const myId = this.myId;
-    if (!state || !myId) return false;
+    if (!state || !myId || !this.isActiveInRound()) return false;
     return myId === state.contactInitiatorId || myId === state.contactPartnerId;
   }
 
   isClueGiver(): boolean {
-    return this.myId === this.state?.clueGiverId;
+    return this.isActiveInRound() && this.myId === this.state?.clueGiverId;
   }
 
   isGuesser(): boolean {
-    return !!this.state && this.myId !== this.state.clueGiverId;
+    return !!this.state && this.isActiveInRound() && this.myId !== this.state.clueGiverId;
+  }
+
+  isActiveInRound(): boolean {
+    const state = this.state;
+    const myId = this.myId;
+    if (!state || !myId) return false;
+    const me = state.players.find((p) => p.connectionId === myId);
+    return me?.activeInRound !== false;
+  }
+
+  isSpectating(): boolean {
+    const state = this.state;
+    const myId = this.myId;
+    if (!state || !myId || state.phase === 'LOBBY') return false;
+    return !this.isActiveInRound();
   }
 
   getUsedMatchWords(): string[] {

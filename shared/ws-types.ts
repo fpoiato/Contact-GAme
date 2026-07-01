@@ -6,6 +6,7 @@ export interface Player {
   isHost: boolean;
   joinOrder: number;
   status: PlayerStatus;
+  activeInRound?: boolean;
 }
 
 export type GamePhase =

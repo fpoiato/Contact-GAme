@@ -2,7 +2,7 @@ import { NgClass } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { Subscription } from 'rxjs';
+import { Subscription, filter, take } from 'rxjs';
 import { MIN_PLAYERS, Player, RelayPayload } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
@@ -35,6 +35,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   starting = false;
   approvingIds = new Set<string>();
   rejectingIds = new Set<string>();
+  joinRejected = false;
   private sub: Subscription | null = null;
 
   ngOnInit(): void {
@@ -49,6 +50,18 @@ export class LobbyComponent implements OnInit, OnDestroy {
           if (relay.type === 'GAME_STARTED') {
             this.gameEngine.init();
             this.router.navigate(['/game', this.roomCode]);
+          }
+        }
+        if (msg.action === 'PLAYER_APPROVED') {
+          const player = msg.payload as Player;
+          if (player.connectionId === this.roomService.room?.connectionId) {
+            this.navigateIfGameInProgress();
+          }
+        }
+        if (msg.action === 'GAME_STATE_RESPONSE') {
+          const payload = msg.payload as { state: { phase: string } };
+          if (payload.state?.phase && payload.state.phase !== 'LOBBY') {
+            void this.router.navigate(['/game', this.roomCode]);
           }
         }
       })
@@ -67,6 +80,20 @@ export class LobbyComponent implements OnInit, OnDestroy {
         this.isHost = r?.isHost ?? false;
       })
     );
+    this.sub.add(
+      this.roomService.joinRejected$.subscribe((rejected) => {
+        this.joinRejected = !!rejected;
+      })
+    );
+  }
+
+  get isAwaitingApproval(): boolean {
+    return this.roomService.isAwaitingApproval();
+  }
+
+  leaveAfterRejection(): void {
+    this.roomService.clearJoinRejected();
+    void this.router.navigate(['/']);
   }
 
   ngOnDestroy(): void {
@@ -158,5 +185,19 @@ export class LobbyComponent implements OnInit, OnDestroy {
     if (!restored) {
       void this.router.navigate(['/'], { queryParams: { room: this.roomCode } });
     }
+  }
+
+  private navigateIfGameInProgress(): void {
+    this.gameEngine.requestGameState();
+    const sub = this.gameEngine.state$
+      .pipe(
+        filter((s) => !!s && s.phase !== 'LOBBY'),
+        take(1),
+      )
+      .subscribe(() => {
+        void this.router.navigate(['/game', this.roomCode]);
+        sub.unsubscribe();
+      });
+    this.sub?.add(sub);
   }
 }

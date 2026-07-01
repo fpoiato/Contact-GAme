@@ -6,6 +6,7 @@ export interface Player {
   isHost: boolean;
   joinOrder: number;
   status: PlayerStatus;
+  activeInRound?: boolean;
 }
 
 export type GamePhase =
@@ -141,7 +142,10 @@ export function redactStateForPlayer(state: GameState, viewerId: string): GameSt
 }
 
 export function createInitialState(players: Player[], hostId: string): GameState {
-  const approved = players.filter((p) => p.status === 'approved').sort((a, b) => a.joinOrder - b.joinOrder);
+  const approved = players
+    .filter((p) => p.status === 'approved')
+    .sort((a, b) => a.joinOrder - b.joinOrder)
+    .map((p) => ({ ...p, activeInRound: p.activeInRound !== false }));
   const scores: Record<string, number> = {};
   for (const p of approved) {
     scores[p.connectionId] = 0;

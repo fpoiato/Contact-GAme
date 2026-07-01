@@ -152,6 +152,11 @@
     @if (!canStart()) {
       <p class="text-center text-sm text-white/70">{{ 'MIN_PLAYERS' | translate }}</p>
     }
+  } @else if (isAwaitingApproval) {
+    <p class="mt-auto flex items-center justify-center gap-2 text-center text-lg text-white/80">
+      <app-spinner size="sm" />
+      {{ 'WAITING_APPROVAL' | translate }}
+    </p>
   } @else {
     <p class="mt-auto flex items-center justify-center gap-2 text-center text-lg text-white/80">
       <app-spinner size="sm" />
@@ -159,3 +164,30 @@
     </p>
   }
 </div>
+
+@if (isAwaitingApproval && !joinRejected) {
+  <div class="overlay">
+    <div class="card flex w-full max-w-sm flex-col items-center gap-4 text-center">
+      <app-spinner size="lg" />
+      <div>
+        <p class="text-lg font-bold">{{ 'WAITING_APPROVAL_TITLE' | translate }}</p>
+        <p class="mt-2 text-sm text-white/70">{{ 'WAITING_APPROVAL' | translate }}</p>
+      </div>
+    </div>
+  </div>
+}
+
+@if (joinRejected) {
+  <div class="overlay">
+    <div class="card flex w-full max-w-sm flex-col items-center gap-4 text-center">
+      <span class="flex h-14 w-14 items-center justify-center rounded-full bg-coral/20 text-3xl">✕</span>
+      <div>
+        <p class="text-lg font-bold text-coral">{{ 'JOIN_REJECTED_TITLE' | translate }}</p>
+        <p class="mt-2 text-sm text-white/80">{{ 'JOIN_REJECTED_MSG' | translate }}</p>
+      </div>
+      <app-loading-button extraClass="w-full" (pressed)="leaveAfterRejection()">
+        {{ 'BACK' | translate }}
+      </app-loading-button>
+    </div>
+  </div>
+}

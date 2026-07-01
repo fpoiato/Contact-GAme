@@ -1,7 +1,9 @@
 <div class="relative mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-8">
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-black">{{ 'APP_TITLE' | translate }}</h1>
+      <a routerLink="/" class="text-2xl font-black transition hover:text-yellow-bright active:opacity-80">
+        {{ 'APP_TITLE' | translate }}
+      </a>
       <p class="text-sm text-yellow-bright">{{ roomCode }} · R{{ state?.currentRound ?? 1 }}</p>
     </div>
     <div class="flex items-center gap-2">
@@ -38,6 +40,13 @@
   }
 
   @if (state) {
+    @if (isSpectating) {
+      <div class="card border border-yellow-bright/40 text-center">
+        <p class="text-sm font-semibold text-yellow-bright">{{ 'JOIN_NEXT_ROUND' | translate }}</p>
+        <p class="mt-1 text-xs text-white/70">{{ 'JOIN_NEXT_ROUND_HINT' | translate }}</p>
+      </div>
+    }
+
     <div class="card text-center">
       <p class="text-sm uppercase tracking-wide text-white/70">{{ 'REVEALED' | translate }}</p>
       <p class="text-5xl font-black tracking-widest text-yellow-bright">{{ displayPrefix || '?' }}</p>
@@ -275,6 +284,44 @@
   @if (overlay) {
     <div class="overlay">
       <p class="text-center text-4xl font-black text-yellow-bright">{{ overlayMessage() | translate }}</p>
+    </div>
+  }
+
+  @if (isHost && pending.length) {
+    <div class="overlay">
+      <div class="card w-full max-w-sm flex flex-col gap-4">
+        <div>
+          <h2 class="text-lg font-bold">{{ 'MID_GAME_JOIN_REQUEST' | translate }}</h2>
+          <p class="mt-1 text-sm text-white/70">{{ 'MID_GAME_JOIN_HINT' | translate }}</p>
+        </div>
+        @for (p of pending; track p.connectionId) {
+          <div class="flex items-center justify-between rounded-xl bg-white/10 px-4 py-3">
+            <span class="font-semibold">{{ p.nickname }}</span>
+            <div class="flex gap-2">
+              <app-loading-button
+                variant="secondary"
+                extraClass="px-3 py-1 text-sm min-h-0"
+                spinnerSize="sm"
+                [loading]="isApproving(p.connectionId)"
+                [disabled]="isRejecting(p.connectionId)"
+                (pressed)="approve(p.connectionId)"
+              >
+                {{ 'APPROVE' | translate }}
+              </app-loading-button>
+              <app-loading-button
+                variant="danger"
+                extraClass="px-3 py-1 text-sm min-h-0"
+                spinnerSize="sm"
+                [loading]="isRejecting(p.connectionId)"
+                [disabled]="isApproving(p.connectionId)"
+                (pressed)="reject(p.connectionId)"
+              >
+                {{ 'REJECT' | translate }}
+              </app-loading-button>
+            </div>
+          </div>
+        }
+      </div>
     </div>
   }
 </div>

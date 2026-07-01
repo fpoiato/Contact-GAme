@@ -18,10 +18,12 @@ export class RoomService {
   private readonly roomSubject = new BehaviorSubject<RoomContext | null>(null);
   private readonly playersSubject = new BehaviorSubject<Player[]>([]);
   private readonly pendingSubject = new BehaviorSubject<Player[]>([]);
+  private readonly joinRejectedSubject = new BehaviorSubject<string | null>(null);
 
   readonly room$ = this.roomSubject.asObservable();
   readonly players$ = this.playersSubject.asObservable();
   readonly pending$ = this.pendingSubject.asObservable();
+  readonly joinRejected$ = this.joinRejectedSubject.asObservable();
 
   get room(): RoomContext | null {
     return this.roomSubject.value;
@@ -94,7 +96,7 @@ export class RoomService {
               nickname,
               isHost: false,
               joinOrder: -1,
-              status: 'approved',
+              status: 'pending',
             },
           ]);
           pendingSub.unsubscribe();
@@ -198,6 +200,10 @@ export class RoomService {
           this.pendingSubject.next(this.pendingSubject.value.filter((x) => x.connectionId !== p.connectionId));
           observer.next();
         }),
+        this.ws.onAction<{ message: string }>('JOIN_REJECTED').subscribe((payload) => {
+          this.handleJoinRejected(payload.message);
+          observer.next();
+        }),
         this.ws.onAction<{ connectionId: string; nickname: string }>('PLAYER_LEFT').subscribe((p) => {
           this.playersSubject.next(this.playersSubject.value.filter((x) => x.connectionId !== p.connectionId));
           observer.next();
@@ -242,7 +248,24 @@ export class RoomService {
   rejectPlayer(connectionId: string): void {
     const room = this.room;
     if (!room?.isHost) return;
+    this.pendingSubject.next(this.pendingSubject.value.filter((x) => x.connectionId !== connectionId));
     this.ws.send('REJECT_PLAYER', { targetConnectionId: connectionId }, room.roomCode);
+  }
+
+  clearJoinRejected(): void {
+    this.joinRejectedSubject.next(null);
+  }
+
+  isAwaitingApproval(): boolean {
+    const room = this.room;
+    if (!room || room.isHost) return false;
+    const me = this.players.find((p) => p.connectionId === room.connectionId);
+    return me?.status === 'pending';
+  }
+
+  private handleJoinRejected(message: string): void {
+    this.reset();
+    this.joinRejectedSubject.next(message);
   }
 
   getInviteUrl(roomCode: string): string {
@@ -258,6 +281,7 @@ export class RoomService {
     this.roomSubject.next(null);
     this.playersSubject.next([]);
     this.pendingSubject.next([]);
+    this.joinRejectedSubject.next(null);
     this.session.clear();
   }
 }
