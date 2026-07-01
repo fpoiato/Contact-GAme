@@ -60,7 +60,10 @@ export type ClientAction =
   | 'HOST_STATE_RESPONSE'
   | 'CAST_VOTE'
   | 'FORWARD_TO_HOST'
-  | 'START_GAME';
+  | 'START_GAME'
+  | 'REJOIN_ROOM'
+  | 'REQUEST_GAME_STATE'
+  | 'GAME_STATE_RESPONSE';
 
 export type RelayEventType =
   | 'STATE_SYNC'
@@ -86,7 +89,11 @@ export type ServerEvent =
   | 'REQUEST_HOST_STATE'
   | 'HOST_STATE_RESPONSE'
   | 'RELAY'
-  | 'VOTE_FORWARD';
+  | 'VOTE_FORWARD'
+  | 'REJOIN_OK'
+  | 'PLAYER_REJOINED'
+  | 'REQUEST_GAME_STATE'
+  | 'GAME_STATE_RESPONSE';
 
 export interface WsEnvelope<T = unknown> {
   action: ClientAction | ServerEvent | 'message';

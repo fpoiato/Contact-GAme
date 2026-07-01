@@ -9,8 +9,12 @@
 
   @if (!state) {
     <div class="card flex flex-col items-center gap-3 py-10 text-center">
-      <app-spinner size="lg" />
-      <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+      @if (loadError) {
+        <p class="text-coral font-semibold">{{ 'RECONNECT_FAILED' | translate }}</p>
+      } @else {
+        <app-spinner size="lg" />
+        <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+      }
     </div>
   }
 

@@ -1,6 +1,7 @@
+import { NgClass } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { GameState, isValidSecretWord, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
@@ -13,7 +14,7 @@ import { SpinnerComponent } from '../../shared/spinner.component';
 @Component({
   selector: 'app-game-room',
   standalone: true,
-  imports: [FormsModule, TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [NgClass, FormsModule, TranslateModule, RouterLink, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './game-room.component.html',
 })
 export class GameRoomComponent implements OnInit, OnDestroy {
@@ -41,16 +42,22 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   submittingGuess = false;
   submittingBlock = false;
 
+  loadError = false;
+  scoresOpen = false;
+  private sessionReady = false;
+
   private prevPhase: string | null = null;
   private subs: Subscription[] = [];
 
   ngOnInit(): void {
     this.gameEngine.init();
     this.roomCode = this.route.snapshot.paramMap.get('roomCode') ?? '';
+    void this.initSession();
 
     this.subs.push(
       this.gameEngine.state$.subscribe((s) => {
         this.state = s;
+        if (s) this.loadError = false;
         if (s?.phase === 'CONTACT_COUNTDOWN' && this.prevPhase !== 'CONTACT_COUNTDOWN') {
           this.guessSubmitted = false;
           this.blockSubmitted = false;
@@ -81,12 +88,29 @@ export class GameRoomComponent implements OnInit, OnDestroy {
         if (s === 0) this.clueInputOpen = false;
       }),
       this.gameEngine.contactCount$.subscribe((c) => (this.contactCount = c)),
-      this.roomService.room$.subscribe((r) => {
-        if (r?.isHost && !this.state) {
-          this.gameEngine.requestHostStateRecovery();
-        }
-      })
+      this.gameEngine.stateRecoveryFailed$.subscribe((failed) => {
+        if (failed) this.loadError = true;
+      }),
     );
+  }
+
+  private async initSession(): Promise<void> {
+    const restored = await this.roomService.tryRestoreSession(this.roomCode);
+    if (!restored) {
+      void this.router.navigate(['/'], { queryParams: { room: this.roomCode } });
+      return;
+    }
+    this.sessionReady = true;
+    this.ensureGameStateLoaded();
+  }
+
+  private ensureGameStateLoaded(): void {
+    if (!this.sessionReady || this.state) return;
+    if (this.roomService.room?.isHost) {
+      this.gameEngine.requestHostStateRecovery();
+    } else {
+      this.gameEngine.requestGameState();
+    }
   }
 
   ngOnDestroy(): void {
@@ -213,5 +237,25 @@ export class GameRoomComponent implements OnInit, OnDestroy {
 
   getScore(playerId: string): number {
     return this.state?.scores?.[playerId] ?? 0;
+  }
+
+  get myScore(): number {
+    return this.myId ? this.getScore(this.myId) : 0;
+  }
+
+  get rankedPlayers() {
+    if (!this.state?.players) return [];
+    return [...this.state.players].sort((a, b) => {
+      const diff = this.getScore(b.connectionId) - this.getScore(a.connectionId);
+      return diff !== 0 ? diff : a.joinOrder - b.joinOrder;
+    });
+  }
+
+  toggleScores(): void {
+    this.scoresOpen = !this.scoresOpen;
+  }
+
+  closeScores(): void {
+    this.scoresOpen = false;
   }
 }

@@ -3,14 +3,17 @@ import {
   broadcastToApproved,
   broadcastToRoom,
   deleteConnection,
+  deleteRejoinSlot,
   generateRoomCode,
   getApprovedConnections,
   getConnection,
   getHostConnection,
+  getRejoinSlot,
   getRoomConnections,
   MAX_PLAYERS,
   nicknameTaken,
   putConnection,
+  putRejoinSlot,
   roomCodeExists,
   sendToConnection,
   ttl24h,
@@ -26,6 +29,22 @@ async function nextJoinOrder(roomCode: string): Promise<number> {
   const approved = await getApprovedConnections(roomCode);
   if (approved.length === 0) return 0;
   return Math.max(...approved.map((c) => c.joinOrder)) + 1;
+}
+
+function toPlayer(conn: {
+  connectionId: string;
+  nickname: string;
+  isHost: boolean;
+  joinOrder: number;
+  status: 'pending' | 'approved';
+}) {
+  return {
+    connectionId: conn.connectionId,
+    nickname: conn.nickname,
+    isHost: conn.isHost,
+    joinOrder: conn.joinOrder,
+    status: conn.status,
+  };
 }
 
 export const handler: APIGatewayProxyHandler = async (event) => {
@@ -143,6 +162,88 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         break;
       }
 
+      case 'REJOIN_ROOM': {
+        const { nickname, roomCode } = payload as { nickname: string; roomCode: string };
+        const code = (roomCode || envelopeRoomCode || '').toUpperCase().trim();
+        const trimmedNickname = nickname?.trim();
+
+        if (!trimmedNickname || code.length !== 5) {
+          await sendToConnection(connectionId, {
+            action: 'ERROR',
+            payload: { message: 'Invalid nickname or room code' },
+          });
+          return ok();
+        }
+
+        const slot = await getRejoinSlot(code, trimmedNickname);
+        if (!slot) {
+          await sendToConnection(connectionId, {
+            action: 'ERROR',
+            payload: { message: 'Session expired. Rejoin from the home screen.' },
+          });
+          return ok();
+        }
+
+        if (await nicknameTaken(code, trimmedNickname)) {
+          await sendToConnection(connectionId, {
+            action: 'ERROR',
+            payload: { message: 'Nickname already in use' },
+          });
+          return ok();
+        }
+
+        const currentHost = await getHostConnection(code);
+        let isHostPlayer = slot.isHost;
+        if (currentHost) {
+          isHostPlayer = false;
+        } else if (slot.isHost) {
+          isHostPlayer = true;
+        }
+
+        await putConnection({
+          connectionId,
+          roomCode: code,
+          nickname: trimmedNickname,
+          isHost: isHostPlayer,
+          joinOrder: slot.joinOrder,
+          status: 'approved',
+          ttl: ttl24h(),
+        });
+        await deleteRejoinSlot(code, trimmedNickname);
+
+        const players = (await getApprovedConnections(code)).map(toPlayer);
+
+        await sendToConnection(connectionId, {
+          action: 'REJOIN_OK',
+          payload: {
+            roomCode: code,
+            connectionId,
+            nickname: trimmedNickname,
+            isHost: isHostPlayer,
+            players,
+          },
+          roomCode: code,
+        });
+
+        await broadcastToApproved(
+          code,
+          {
+            action: 'PLAYER_REJOINED',
+            payload: {
+              connectionId,
+              nickname: trimmedNickname,
+              previousConnectionId: slot.previousConnectionId,
+              isHost: isHostPlayer,
+              joinOrder: slot.joinOrder,
+              status: 'approved',
+            },
+            roomCode: code,
+          },
+          connectionId
+        );
+        break;
+      }
+
       case 'APPROVE_PLAYER': {
         if (!(await isHost(connectionId))) {
           await sendToConnection(connectionId, {
@@ -254,6 +355,21 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         break;
       }
 
+      case 'REQUEST_GAME_STATE': {
+        const requester = await getConnection(connectionId);
+        if (!requester || requester.status !== 'approved') return ok();
+
+        const host = await getHostConnection(requester.roomCode);
+        if (!host) return ok();
+
+        await sendToConnection(host.connectionId, {
+          action: 'REQUEST_GAME_STATE',
+          payload: { requesterId: connectionId },
+          roomCode: requester.roomCode,
+        });
+        break;
+      }
+
       case 'HOST_STATE_RESPONSE': {
         const responder = await getConnection(connectionId);
         const { targetHostId, state } = payload as {
@@ -266,6 +382,23 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         await sendToConnection(targetHostId, {
           action: 'HOST_STATE_RESPONSE',
           payload: { state, fromId: connectionId },
+          roomCode: responder.roomCode,
+        });
+        break;
+      }
+
+      case 'GAME_STATE_RESPONSE': {
+        const responder = await getConnection(connectionId);
+        const { targetId, state } = payload as {
+          targetId: string;
+          state: unknown;
+        };
+
+        if (!responder || !responder.isHost) return ok();
+
+        await sendToConnection(targetId, {
+          action: 'GAME_STATE_RESPONSE',
+          payload: { state },
           roomCode: responder.roomCode,
         });
         break;

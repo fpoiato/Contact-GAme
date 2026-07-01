@@ -39,7 +39,7 @@ export class WebSocketService implements OnDestroy {
       this.socket.onmessage = (event) => {
         try {
           const envelope = JSON.parse(event.data as string) as WsEnvelope;
-          if (envelope.action === 'ROOM_CREATED' || envelope.action === 'JOIN_PENDING') {
+          if (envelope.action === 'ROOM_CREATED' || envelope.action === 'JOIN_PENDING' || envelope.action === 'REJOIN_OK') {
             const payload = envelope.payload as { connectionId?: string };
             if (payload?.connectionId) {
               this.connectionIdSubject.next(payload.connectionId);

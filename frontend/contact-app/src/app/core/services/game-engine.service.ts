@@ -30,7 +30,11 @@ export class GameEngineService implements OnDestroy {
 
   private tickSub: Subscription | null = null;
   private hostRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private gameStateRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
   private messageSub: Subscription | null = null;
+  private readonly stateRecoveryFailedSubject = new BehaviorSubject<boolean>(false);
+
+  readonly stateRecoveryFailed$ = this.stateRecoveryFailedSubject.asObservable();
 
   readonly state$ = this.stateSubject.asObservable();
   readonly overlay$ = this.overlaySubject.asObservable();
@@ -205,8 +209,19 @@ export class GameEngineService implements OnDestroy {
   requestHostStateRecovery(): void {
     const room = this.roomService.room;
     if (!room?.isHost) return;
+    this.stateRecoveryFailedSubject.next(false);
     this.ws.send('REQUEST_HOST_STATE', {}, room.roomCode);
     this.hostRecoveryTimer = setTimeout(() => this.fallbackRecovery(), 5000);
+  }
+
+  requestGameState(): void {
+    const room = this.roomService.room;
+    if (!room || this.state) return;
+    this.stateRecoveryFailedSubject.next(false);
+    this.ws.send('REQUEST_GAME_STATE', {}, room.roomCode);
+    this.gameStateRecoveryTimer = setTimeout(() => {
+      this.stateRecoveryFailedSubject.next(true);
+    }, 8000);
   }
 
   respondToHostStateRequest(requesterId: string): void {
@@ -218,10 +233,20 @@ export class GameEngineService implements OnDestroy {
     this.ws.send('HOST_STATE_RESPONSE', { targetHostId: requesterId, state }, room.roomCode);
   }
 
+  respondToGameStateRequest(requesterId: string): void {
+    const state = this.state;
+    const room = this.roomService.room;
+    if (!state || !room || !room.isHost) return;
+    if (state.phase === 'LOBBY') return;
+
+    this.ws.send('GAME_STATE_RESPONSE', { targetId: requesterId, state }, room.roomCode);
+  }
+
   ngOnDestroy(): void {
     this.tickSub?.unsubscribe();
     this.messageSub?.unsubscribe();
     if (this.hostRecoveryTimer) clearTimeout(this.hostRecoveryTimer);
+    if (this.gameStateRecoveryTimer) clearTimeout(this.gameStateRecoveryTimer);
   }
 
   private handleMessage(action: string, payload: unknown): void {
@@ -235,8 +260,19 @@ export class GameEngineService implements OnDestroy {
       case 'REQUEST_HOST_STATE':
         this.respondToHostStateRequest((payload as { requesterId: string }).requesterId);
         break;
+      case 'REQUEST_GAME_STATE':
+        if (this.isHost) {
+          this.respondToGameStateRequest((payload as { requesterId: string }).requesterId);
+        }
+        break;
       case 'HOST_STATE_RESPONSE':
         if (this.isHost) this.applyHostSnapshot((payload as { state: GameState }).state);
+        break;
+      case 'GAME_STATE_RESPONSE':
+        this.applyRejoinedState((payload as { state: GameState }).state);
+        break;
+      case 'PLAYER_REJOINED':
+        if (this.isHost) this.handlePlayerRejoined(payload as Record<string, unknown>);
         break;
       case 'HOST_CHANGED':
         if (this.roomService.room?.isHost) {
@@ -586,6 +622,53 @@ export class GameEngineService implements OnDestroy {
       this.tickSub = null;
       this.contactCountSubject.next(null);
     }
+  }
+
+  private applyRejoinedState(state: GameState): void {
+    if (this.gameStateRecoveryTimer) {
+      clearTimeout(this.gameStateRecoveryTimer);
+      this.gameStateRecoveryTimer = null;
+    }
+    this.stateRecoveryFailedSubject.next(false);
+    this.stateSubject.next(state);
+    this.syncTimersFromState(state);
+  }
+
+  private handlePlayerRejoined(payload: Record<string, unknown>): void {
+    const state = this.state;
+    if (!state || !this.isHost) return;
+
+    const previousConnectionId = payload['previousConnectionId'] as string | undefined;
+    const connectionId = payload['connectionId'] as string;
+    const nickname = payload['nickname'] as string;
+    if (!connectionId || !nickname) return;
+
+    if (previousConnectionId) {
+      this.remapConnectionId(state, previousConnectionId, connectionId);
+    }
+
+    state.players = state.players.map((player) =>
+      player.nickname.toLowerCase() === nickname.toLowerCase()
+        ? {
+            ...player,
+            connectionId,
+            isHost: (payload['isHost'] as boolean) ?? player.isHost,
+            joinOrder: (payload['joinOrder'] as number) ?? player.joinOrder,
+          }
+        : player
+    );
+
+    this.setStateAndRelay('STATE_SYNC', state);
+  }
+
+  private remapConnectionId(state: GameState, oldId: string, newId: string): void {
+    if (state.clueGiverId === oldId) state.clueGiverId = newId;
+    if (state.hostId === oldId) state.hostId = newId;
+    if (state.contactInitiatorId === oldId) state.contactInitiatorId = newId;
+    if (state.contactPartnerId === oldId) state.contactPartnerId = newId;
+    state.activeClues = state.activeClues?.map((clue) =>
+      clue.authorId === oldId ? { ...clue, authorId: newId } : clue
+    );
   }
 
   private applyHostSnapshot(state: GameState): void {

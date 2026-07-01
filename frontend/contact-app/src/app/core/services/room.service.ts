@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { Player } from '../models/ws-types';
+import { SessionService } from './session.service';
 import { WebSocketService } from './websocket.service';
 
 export interface RoomContext {
@@ -13,6 +14,7 @@ export interface RoomContext {
 @Injectable({ providedIn: 'root' })
 export class RoomService {
   private readonly ws = inject(WebSocketService);
+  private readonly session = inject(SessionService);
   private readonly roomSubject = new BehaviorSubject<RoomContext | null>(null);
   private readonly playersSubject = new BehaviorSubject<Player[]>([]);
   private readonly pendingSubject = new BehaviorSubject<Player[]>([]);
@@ -41,6 +43,11 @@ export class RoomService {
             nickname,
             isHost: payload.isHost,
             connectionId: payload.connectionId,
+          });
+          this.session.save({
+            roomCode: payload.roomCode,
+            nickname,
+            isHost: payload.isHost,
           });
           this.playersSubject.next([
             {
@@ -76,6 +83,11 @@ export class RoomService {
             isHost: false,
             connectionId: payload.connectionId,
           });
+          this.session.save({
+            roomCode: payload.roomCode,
+            nickname,
+            isHost: false,
+          });
           this.playersSubject.next([
             {
               connectionId: payload.connectionId,
@@ -95,6 +107,67 @@ export class RoomService {
       });
       this.ws.onAction<{ message: string }>('JOIN_REJECTED').subscribe((err) => {
         pendingSub.unsubscribe();
+        reject(new Error(err.message));
+      });
+    });
+  }
+
+  async tryRestoreSession(roomCode: string): Promise<boolean> {
+    const code = roomCode.toUpperCase();
+    const room = this.room;
+    if (room?.roomCode === code) {
+      return true;
+    }
+
+    const saved = this.session.load();
+    if (!saved || saved.roomCode.toUpperCase() !== code) {
+      return false;
+    }
+
+    try {
+      await this.rejoinRoom(saved.nickname, roomCode);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async rejoinRoom(nickname: string, roomCode: string): Promise<void> {
+    await this.ws.connect();
+    const code = roomCode.toUpperCase();
+    this.ws.send('REJOIN_ROOM', { nickname, roomCode: code });
+
+    return new Promise((resolve, reject) => {
+      const okSub = this.ws
+        .onAction<{
+          roomCode: string;
+          connectionId: string;
+          nickname: string;
+          isHost: boolean;
+          players: Player[];
+        }>('REJOIN_OK')
+        .subscribe((payload) => {
+          if (payload.roomCode !== code) return;
+          this.roomSubject.next({
+            roomCode: payload.roomCode,
+            nickname: payload.nickname,
+            isHost: payload.isHost,
+            connectionId: payload.connectionId,
+          });
+          this.playersSubject.next(payload.players);
+          this.session.save({
+            roomCode: payload.roomCode,
+            nickname: payload.nickname,
+            isHost: payload.isHost,
+          });
+          okSub.unsubscribe();
+          errSub.unsubscribe();
+          resolve();
+        });
+
+      const errSub = this.ws.onAction<{ message: string }>('ERROR').subscribe((err) => {
+        okSub.unsubscribe();
+        errSub.unsubscribe();
         reject(new Error(err.message));
       });
     });
@@ -134,6 +207,11 @@ export class RoomService {
           if (room) {
             const isNewHost = room.connectionId === p.newHostId;
             this.roomSubject.next({ ...room, isHost: isNewHost });
+            this.session.save({
+              roomCode: room.roomCode,
+              nickname: room.nickname,
+              isHost: isNewHost,
+            });
             this.playersSubject.next(
               this.playersSubject.value.map((pl) => ({
                 ...pl,
@@ -141,6 +219,13 @@ export class RoomService {
               }))
             );
           }
+          observer.next();
+        }),
+        this.ws.onAction<Player>('PLAYER_REJOINED').subscribe((p) => {
+          this.playersSubject.next([
+            ...this.playersSubject.value.filter((x) => x.connectionId !== p.connectionId && x.nickname !== p.nickname),
+            p,
+          ]);
           observer.next();
         }),
       ];
@@ -173,5 +258,6 @@ export class RoomService {
     this.roomSubject.next(null);
     this.playersSubject.next([]);
     this.pendingSubject.next([]);
+    this.session.clear();
   }
 }

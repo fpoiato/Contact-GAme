@@ -7,6 +7,7 @@ import { SpinnerComponent } from './spinner.component';
   selector: 'app-loading-button',
   standalone: true,
   imports: [NgClass, SpinnerComponent, TranslateModule],
+  host: { class: 'block' },
   template: `
     <button
       type="button"

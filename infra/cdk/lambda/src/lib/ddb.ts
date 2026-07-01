@@ -22,6 +22,16 @@ export interface ConnectionRecord {
   ttl: number;
 }
 
+export interface RejoinSlot {
+  connectionId: string;
+  roomCode: string;
+  nickname: string;
+  isHost: boolean;
+  joinOrder: number;
+  previousConnectionId: string;
+  ttl: number;
+}
+
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const TABLE = process.env.CONNECTIONS_TABLE!;
 
@@ -42,6 +52,36 @@ export async function putConnection(record: ConnectionRecord): Promise<void> {
 
 export async function deleteConnection(connectionId: string): Promise<void> {
   await ddb.send(new DeleteCommand({ TableName: TABLE, Key: { connectionId } }));
+}
+
+function rejoinKey(roomCode: string, nickname: string): string {
+  return `REJOIN#${roomCode}#${nickname.toLowerCase()}`;
+}
+
+export async function putRejoinSlot(slot: Omit<RejoinSlot, 'connectionId'>): Promise<void> {
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: {
+        connectionId: rejoinKey(slot.roomCode, slot.nickname),
+        ...slot,
+      },
+    })
+  );
+}
+
+export async function getRejoinSlot(
+  roomCode: string,
+  nickname: string
+): Promise<RejoinSlot | undefined> {
+  const result = await ddb.send(
+    new GetCommand({ TableName: TABLE, Key: { connectionId: rejoinKey(roomCode, nickname) } })
+  );
+  return result.Item as RejoinSlot | undefined;
+}
+
+export async function deleteRejoinSlot(roomCode: string, nickname: string): Promise<void> {
+  await ddb.send(new DeleteCommand({ TableName: TABLE, Key: { connectionId: rejoinKey(roomCode, nickname) } }));
 }
 
 export async function getRoomConnections(roomCode: string): Promise<ConnectionRecord[]> {

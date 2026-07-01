@@ -54,30 +54,101 @@
     </div>
   }
 
-  <div class="flex flex-col gap-3">
-    <app-loading-button
-      variant="secondary"
-      [loading]="copying"
-      [disabled]="copied"
-      (pressed)="copyLink()"
+  <div class="card flex flex-col gap-4 border border-yellow-bright/25">
+    <div>
+      <h2 class="text-lg font-bold">{{ 'INVITE_TITLE' | translate }}</h2>
+      <p class="mt-1 text-sm text-white/70">{{ 'INVITE_SUBTITLE' | translate }}</p>
+    </div>
+
+    <button
+      type="button"
+      class="group flex w-full items-center gap-3 rounded-2xl bg-black/20 px-4 py-3 text-left ring-1 ring-white/15 transition hover:bg-black/30 hover:ring-yellow-bright/40 active:scale-[0.99]"
+      [disabled]="copying"
+      (click)="copyLink()"
     >
-      {{ copied ? ('LINK_COPIED' | translate) : ('COPY_LINK' | translate) }}
-    </app-loading-button>
-    <app-loading-button variant="secondary" (pressed)="shareWhatsApp()">
-      {{ 'SHARE_WHATSAPP' | translate }}
-    </app-loading-button>
+      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-bright/15 text-yellow-bright">
+        @if (copied) {
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        } @else if (copying) {
+          <app-spinner size="sm" />
+        } @else {
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.172 13.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.102-1.101" />
+          </svg>
+        }
+      </span>
+      <span class="min-w-0 flex-1">
+        <span class="block truncate font-mono text-sm text-white/90">{{ inviteUrl }}</span>
+        <span
+          class="mt-0.5 block text-xs font-semibold"
+          [ngClass]="copied ? 'text-mint' : 'text-white/50'"
+        >
+          {{ copied ? ('LINK_COPIED' | translate) : ('TAP_TO_COPY' | translate) }}
+        </span>
+      </span>
+    </button>
+
+    <div class="grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        class="flex min-h-[4.5rem] flex-col items-center justify-center gap-2 rounded-2xl bg-white/10 px-3 py-4 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-95 disabled:opacity-60"
+        [disabled]="copying"
+        (click)="copyLink()"
+      >
+        <svg class="h-6 w-6 text-yellow-bright" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+        <span class="text-sm font-bold">{{ copied ? ('COPIED' | translate) : ('COPY_LINK' | translate) }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="flex min-h-[4.5rem] flex-col items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-3 py-4 text-white shadow-lg shadow-[#25D366]/25 transition hover:brightness-110 active:scale-95"
+        (click)="shareWhatsApp()"
+      >
+        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+          <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.75.75 0 00.92.899l4.525-1.607A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.006-1.378l-.358-.213-3.005 1.067 1.002-3.092-.233-.375A9.818 9.818 0 1112 21.818z" />
+        </svg>
+        <span class="text-sm font-bold">{{ 'WHATSAPP' | translate }}</span>
+      </button>
+    </div>
+
+    @if (canNativeShare) {
+      <button
+        type="button"
+        class="flex w-full items-center justify-center gap-2 rounded-2xl bg-yellow-bright/15 px-4 py-3 text-sm font-bold text-yellow-bright ring-1 ring-yellow-bright/30 transition hover:bg-yellow-bright/25 active:scale-[0.99] disabled:opacity-60"
+        [disabled]="sharing"
+        (click)="shareNative()"
+      >
+        @if (sharing) {
+          <app-spinner size="sm" />
+        } @else {
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+          </svg>
+        }
+        {{ 'SHARE_NATIVE' | translate }}
+      </button>
+    }
   </div>
 
   @if (isHost) {
-    <app-loading-button
-      extraClass="mt-auto"
-      [loading]="starting"
-      [disabled]="!canStart()"
-      [showLoadingLabel]="true"
-      (pressed)="startGame()"
-    >
-      {{ 'START_GAME' | translate }}
-    </app-loading-button>
+    <div class="mt-auto w-full">
+      <app-loading-button
+        extraClass="w-full"
+        [loading]="starting"
+        [disabled]="!canStart()"
+        [showLoadingLabel]="true"
+        (pressed)="startGame()"
+      >
+        {{ 'START_GAME' | translate }}
+      </app-loading-button>
+    </div>
     @if (!canStart()) {
       <p class="text-center text-sm text-white/70">{{ 'MIN_PLAYERS' | translate }}</p>
     }

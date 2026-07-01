@@ -4,6 +4,8 @@ import {
   deleteConnection,
   getConnection,
   promoteNextHost,
+  putRejoinSlot,
+  ttl24h,
 } from './lib/ddb';
 import { ok } from './lib/response';
 
@@ -15,7 +17,15 @@ export const handler: APIGatewayProxyHandler = async (event) => {
     return ok();
   }
 
-  const { roomCode, isHost } = record;
+  const { roomCode, isHost, nickname, joinOrder } = record;
+  await putRejoinSlot({
+    roomCode,
+    nickname,
+    isHost,
+    joinOrder,
+    previousConnectionId: connectionId,
+    ttl: ttl24h(),
+  });
   await deleteConnection(connectionId);
 
   if (isHost) {

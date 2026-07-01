@@ -1,6 +1,7 @@
+import { NgClass } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { MIN_PLAYERS, Player, RelayPayload } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
@@ -13,7 +14,7 @@ import { SpinnerComponent } from '../../shared/spinner.component';
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [NgClass, TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './lobby.component.html',
 })
 export class LobbyComponent implements OnInit, OnDestroy {
@@ -22,6 +23,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   private readonly roomService = inject(RoomService);
   private readonly gameEngine = inject(GameEngineService);
   private readonly ws = inject(WebSocketService);
+  private readonly translate = inject(TranslateService);
 
   roomCode = '';
   players: Player[] = [];
@@ -29,6 +31,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   isHost = false;
   copied = false;
   copying = false;
+  sharing = false;
   starting = false;
   approvingIds = new Set<string>();
   rejectingIds = new Set<string>();
@@ -37,6 +40,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.gameEngine.init();
     this.roomCode = this.route.snapshot.paramMap.get('roomCode') ?? '';
+    void this.restoreLobbySession();
     this.sub = this.roomService.listenForLobbyUpdates().subscribe();
     this.sub.add(
       this.ws.messages$.subscribe((msg) => {
@@ -89,19 +93,46 @@ export class LobbyComponent implements OnInit, OnDestroy {
     return this.rejectingIds.has(id);
   }
 
+  get inviteUrl(): string {
+    return this.roomService.getInviteUrl(this.roomCode);
+  }
+
+  get canNativeShare(): boolean {
+    return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  }
+
   async copyLink(): Promise<void> {
+    if (this.copying || this.copied) return;
     this.copying = true;
     try {
-      await navigator.clipboard.writeText(this.roomService.getInviteUrl(this.roomCode));
+      await navigator.clipboard.writeText(this.inviteUrl);
       this.copied = true;
-      setTimeout(() => (this.copied = false), 2000);
+      setTimeout(() => (this.copied = false), 2500);
     } finally {
       this.copying = false;
     }
   }
 
   shareWhatsApp(): void {
-    window.open(this.roomService.getWhatsAppUrl(this.roomCode), '_blank');
+    window.open(this.roomService.getWhatsAppUrl(this.roomCode), '_blank', 'noopener,noreferrer');
+  }
+
+  async shareNative(): Promise<void> {
+    if (!this.canNativeShare || this.sharing) return;
+    this.sharing = true;
+    try {
+      await navigator.share({
+        title: this.translate.instant('APP_TITLE'),
+        text: this.translate.instant('SHARE_TEXT', { roomCode: this.roomCode }),
+        url: this.inviteUrl,
+      });
+    } catch (err) {
+      if ((err as Error).name !== 'AbortError') {
+        await this.copyLink();
+      }
+    } finally {
+      this.sharing = false;
+    }
   }
 
   startGame(): void {
@@ -120,5 +151,12 @@ export class LobbyComponent implements OnInit, OnDestroy {
 
   canStart(): boolean {
     return this.isHost && this.players.length >= MIN_PLAYERS;
+  }
+
+  private async restoreLobbySession(): Promise<void> {
+    const restored = await this.roomService.tryRestoreSession(this.roomCode);
+    if (!restored) {
+      void this.router.navigate(['/'], { queryParams: { room: this.roomCode } });
+    }
   }
 }

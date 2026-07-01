@@ -4,13 +4,36 @@
       <h1 class="text-2xl font-black">{{ 'APP_TITLE' | translate }}</h1>
       <p class="text-sm text-yellow-bright">{{ roomCode }} · R{{ state?.currentRound ?? 1 }}</p>
     </div>
-    <app-language-toggle />
+    <div class="flex items-center gap-2">
+      @if (state && state.phase !== 'ROUND_COMPLETE') {
+        <button
+          type="button"
+          class="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 transition hover:bg-white/15 active:scale-95"
+          [class.ring-yellow-bright]="scoresOpen"
+          [attr.aria-label]="'VIEW_SCORES' | translate"
+          (click)="toggleScores()"
+        >
+          <svg class="h-5 w-5 text-yellow-bright" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span class="absolute -bottom-1 -right-1 min-w-[1.25rem] rounded-full bg-yellow-bright px-1 text-[10px] font-black leading-4 text-purple-900">
+            {{ myScore }}
+          </span>
+        </button>
+      }
+      <app-language-toggle />
+    </div>
   </div>
 
   @if (!state) {
     <div class="card flex flex-col items-center gap-3 py-10 text-center">
-      <app-spinner size="lg" />
-      <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+      @if (loadError) {
+        <p class="text-coral font-semibold">{{ 'RECONNECT_FAILED' | translate }}</p>
+        <a class="btn-secondary px-6 py-3" routerLink="/">{{ 'BACK' | translate }}</a>
+      } @else {
+        <app-spinner size="lg" />
+        <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
+      }
     </div>
   }
 
@@ -186,17 +209,42 @@
       }
     }
 
-    @if (state.players.length && state.phase !== 'ROUND_COMPLETE') {
-      <div class="card flex flex-col gap-2">
-        <p class="text-sm uppercase tracking-wide text-white/70">{{ 'SCORES' | translate }}</p>
-        @for (player of state.players; track player.connectionId) {
-          <div class="flex items-center justify-between text-sm">
-            <span [class.font-bold]="player.connectionId === myId">{{ player.nickname }}</span>
-            <span class="font-semibold text-yellow-bright">{{ getScore(player.connectionId) }} {{ 'PTS' | translate }}</span>
-          </div>
-        }
+  }
+
+  @if (scoresOpen && state) {
+    <div class="overlay" (click)="closeScores()">
+      <div class="card w-full max-w-sm flex flex-col gap-3" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold">{{ 'SCORES' | translate }}</h2>
+          <button
+            type="button"
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-lg font-bold transition hover:bg-white/20"
+            [attr.aria-label]="'CLOSE' | translate"
+            (click)="closeScores()"
+          >
+            ×
+          </button>
+        </div>
+        <ul class="flex flex-col gap-2">
+          @for (player of rankedPlayers; track player.connectionId; let i = $index) {
+            <li
+              class="flex items-center justify-between rounded-xl px-4 py-2.5"
+              [ngClass]="{
+                'bg-yellow-bright/20': i === 0,
+                'bg-white/10': i !== 0,
+                'ring-2 ring-mint': player.connectionId === myId
+              }"
+            >
+              <div class="flex items-center gap-3">
+                <span class="w-6 text-center text-sm font-bold text-white/60">{{ i + 1 }}</span>
+                <span [class.font-black]="player.connectionId === myId">{{ player.nickname }}</span>
+              </div>
+              <span class="font-bold text-yellow-bright">{{ getScore(player.connectionId) }} {{ 'PTS' | translate }}</span>
+            </li>
+          }
+        </ul>
       </div>
-    }
+    </div>
   }
 
   @if (clueInputOpen) {
