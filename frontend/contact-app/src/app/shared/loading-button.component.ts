@@ -7,7 +7,10 @@ import { SpinnerComponent } from './spinner.component';
   selector: 'app-loading-button',
   standalone: true,
   imports: [NgClass, SpinnerComponent, TranslateModule],
-  host: { class: 'block' },
+  host: {
+    class: 'block',
+    '[class.w-full]': 'fullWidth',
+  },
   template: `
     <button
       type="button"
@@ -15,7 +18,7 @@ import { SpinnerComponent } from './spinner.component';
       [disabled]="disabled || loading"
       (click)="onClick($event)"
     >
-      <span class="inline-flex items-center justify-center gap-2">
+      <span class="inline-flex w-full items-center justify-center gap-2">
         @if (loading) {
           <app-spinner [size]="spinnerSize" />
           @if (showLoadingLabel) {
@@ -31,6 +34,7 @@ import { SpinnerComponent } from './spinner.component';
 export class LoadingButtonComponent {
   @Input() loading = false;
   @Input() disabled = false;
+  @Input() fullWidth = true;
   @Input() variant: 'primary' | 'secondary' | 'danger' = 'primary';
   @Input() extraClass = '';
   @Input() spinnerSize: 'sm' | 'md' | 'lg' = 'md';
@@ -41,7 +45,7 @@ export class LoadingButtonComponent {
   get classes(): string {
     const variantClass =
       this.variant === 'secondary' ? 'btn-secondary' : this.variant === 'danger' ? 'btn-danger' : 'btn-primary';
-    return [variantClass, this.extraClass].filter(Boolean).join(' ');
+    return [variantClass, this.fullWidth ? 'w-full' : '', this.extraClass].filter(Boolean).join(' ');
   }
 
   onClick(event: Event): void {

@@ -1,4 +1,3 @@
-import { NgClass } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -14,7 +13,7 @@ import { SpinnerComponent } from '../../shared/spinner.component';
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [NgClass, TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './lobby.component.html',
 })
 export class LobbyComponent implements OnInit, OnDestroy {

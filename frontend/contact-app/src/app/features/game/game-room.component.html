@@ -275,6 +275,7 @@
           [disabled]="submittingClue"
         ></textarea>
         <app-loading-button
+          extraClass="py-4 text-xl"
           [loading]="submittingClue"
           [disabled]="!clueText.trim()"
           [showLoadingLabel]="true"
@@ -305,6 +306,7 @@
             <div class="flex gap-2">
               <app-loading-button
                 variant="secondary"
+                [fullWidth]="false"
                 extraClass="px-3 py-1 text-sm min-h-0"
                 spinnerSize="sm"
                 [loading]="isApproving(p.connectionId)"
@@ -315,6 +317,7 @@
               </app-loading-button>
               <app-loading-button
                 variant="danger"
+                [fullWidth]="false"
                 extraClass="px-3 py-1 text-sm min-h-0"
                 spinnerSize="sm"
                 [loading]="isRejecting(p.connectionId)"

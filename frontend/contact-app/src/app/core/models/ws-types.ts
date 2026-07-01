@@ -142,6 +142,12 @@ export function redactStateForPlayer(state: GameState, viewerId: string): GameSt
   return clone;
 }
 
+export function pickRandomClueGiver(players: Player[], fallbackId: string): string {
+  const eligible = players.filter((p) => p.status === 'approved' && p.activeInRound !== false);
+  if (eligible.length === 0) return fallbackId;
+  return eligible[Math.floor(Math.random() * eligible.length)].connectionId;
+}
+
 export function createInitialState(players: Player[], hostId: string): GameState {
   const approved = players
     .filter((p) => p.status === 'approved')
@@ -155,7 +161,7 @@ export function createInitialState(players: Player[], hostId: string): GameState
     phase: 'LOBBY',
     players: approved,
     hostId,
-    clueGiverId: approved[0]?.connectionId ?? hostId,
+    clueGiverId: pickRandomClueGiver(approved, hostId),
     secretWord: '',
     revealedPrefix: '',
     canBlock: true,

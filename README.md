@@ -1,100 +1,68 @@
-# Contact Party Game
+# Contact / Contato — Party Word Game
 
-Mobile-first, serverless real-time party word game built with **Angular**, **AWS API Gateway WebSocket**, **Lambda**, **DynamoDB**, **S3**, and **CloudFront**.
+Mobile-first, real-time party word game built with **Angular**, **AWS API Gateway WebSocket**, **Lambda**, **DynamoDB**, **S3**, and **CloudFront**.
 
-## Architecture
+> **For AI agents:** start with [AGENTS.md](AGENTS.md)  
+> **Docs:** [Architecture](docs/ARCHITECTURE.md) · [Game rules](docs/GAME.md) · [Development](docs/DEVELOPMENT.md)
 
-- **Frontend:** Angular 19 + Tailwind CSS, hosted on S3/CloudFront (Terraform)
+## Architecture (summary)
+
+- **Frontend:** Angular 19 + Tailwind CSS, hosted on S3/CloudFront
 - **Realtime:** API Gateway WebSocket + Lambda (CDK)
-- **Connection mapping:** DynamoDB (`connectionId` → `roomCode`, `nickname`, host flag)
-- **Game state:** Ephemeral — Host client is source of truth, synced via WebSocket relays
+- **Connection mapping:** DynamoDB (`connectionId` → room, nickname, host flag, rejoin slots)
+- **Game state:** Ephemeral — **host client is source of truth**, synced via WebSocket `RELAY`
 
 ## Project structure
 
 ```
-Contact-GAme/
-├── frontend/contact-app/   # Angular app
+contact-game/
+├── frontend/contact-app/   # Angular SPA
 ├── infra/cdk/              # WebSocket API, DynamoDB, Lambdas
-├── infra/terraform/        # S3 + CloudFront static hosting
-├── shared/ws-types.ts      # Shared WebSocket contract
-├── pipeline/buildspec.yml  # CodeBuild spec
-└── .github/workflows/      # GitHub Actions → CodePipeline
+├── infra/terraform/        # S3 + CloudFront
+├── shared/ws-types.ts      # Shared WebSocket contract (sync with frontend models)
+├── docs/                   # Architecture, game, development guides
+├── pipeline/buildspec.yml  # CodeBuild deploy
+└── .github/workflows/      # CI + CodePipeline trigger
 ```
 
-## Local development
-
-### Prerequisites
-
-- Node.js 20+
-- AWS CLI (for deploy)
-- AWS CDK CLI (`npm install -g aws-cdk`)
-
-### Frontend
+## Quick start
 
 ```bash
-cd frontend/contact-app
-npm install
-npm start
+npm ci
+npm start    # http://localhost:4200
 ```
 
-Open http://localhost:4200
+Set `frontend/contact-app/src/environments/environment.ts` → `wsUrl` to your deployed WebSocket URL for multiplayer.
 
-Set `src/environments/environment.ts` `wsUrl` to your deployed WebSocket URL for real multiplayer.
-
-### CDK backend
-
-```bash
-cd infra/cdk
-npm install
-export CDK_DEFAULT_ACCOUNT=your-account-id
-export CDK_DEFAULT_REGION=us-east-1
-npx cdk bootstrap   # first time only
-npm run deploy
-```
-
-Note the `WebSocketUrl` output.
-
-### Terraform static hosting
-
-```bash
-cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars
-# Set websocket_url after CDK deploy
-terraform init
-terraform apply
-```
+Deploy backend: `npm run cdk:deploy` (see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 
 ## Game flow
 
-1. **Landing** — Enter nickname, create or join a 5-letter room code
-2. **Lobby** — Host approves joiners; share invite link / WhatsApp
-3. **Game** — Clue Giver sets secret word; Guessers submit clues; CONTACT countdown; block; group vote; letter reveal
-4. **Host migration** — If Host disconnects, backend promotes next player; new Host requests state snapshot
+1. **Landing** — nickname, create or join 5-letter room code
+2. **Lobby** — host approves joiners; share invite link / copy / WhatsApp
+3. **Word setup** — Clue Giver sets secret word (4–12 letters)
+4. **Clue phase** — guessers post clues; call **Contact** on a clue
+5. **Contact countdown** (30s, ends early when both players submit) — both type a word; Clue Giver may block
+6. **Reveal** — match shows next letter or ends round if word guessed
+7. **Scoreboard** — host starts next round; Clue Giver rotates
 
-## CI/CD
+Supports **mid-game join** (spectator until next round), **refresh rejoin**, and **host migration** on disconnect.
 
-1. Push to `main` triggers GitHub Actions (lint/build/test)
-2. On success, GitHub Actions assumes AWS OIDC role and starts CodePipeline
-3. CodeBuild deploys CDK, builds Angular with injected `WS_URL`, applies Terraform, syncs S3, invalidates CloudFront
+## Scoring
 
-### Setup checklist
-
-- [ ] Bootstrap CDK in your AWS account
-- [ ] Create CodeStar Connection to GitHub
-- [ ] Create CodePipeline `contact-game-pipeline` with CodeBuild using `pipeline/buildspec.yml`
-- [ ] Configure GitHub secret `AWS_ROLE_ARN` for OIDC
+| Event | Points |
+|-------|--------|
+| Partial match | +15 each (contact pair) |
+| Secret word on contact | +50 clue author, +25 contact caller |
+| Successful block | +15 Clue Giver |
 
 ## i18n
 
-English and Portuguese (Brazil) — toggle in app header. Translation files in `frontend/contact-app/src/assets/i18n/`.
+English and Portuguese (Brazil). Toggle in app header. Files: `frontend/contact-app/src/assets/i18n/`.
 
-## Rules
+## CI/CD
 
-- 3–12 players per room
-- Secret word: letters only, 4–12 characters
-- Clue Giver auto-rotates each round
-- Match votes: all players; tie = no match
-- Clue Giver cannot block two consecutive contacts
+Push to `main` → GitHub Actions (test/build) → CodePipeline → CodeBuild deploys CDK, builds Angular with `WS_URL`, syncs S3, invalidates CloudFront.
 
 ## License
 
