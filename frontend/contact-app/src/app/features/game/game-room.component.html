@@ -102,8 +102,7 @@
           @for (entry of usedMatchWords; track entry.word) {
             <span
               class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold uppercase"
-              [class.bg-coral/30]="entry.blocked"
-              [class.bg-mint/20]="!entry.blocked"
+              [ngClass]="{ 'bg-coral/30': entry.blocked, 'bg-mint/20': !entry.blocked }"
             >
               {{ entry.word }}
               <span class="text-[10px] font-bold normal-case tracking-wide opacity-80">
@@ -137,8 +136,7 @@
               </p>
               <span
                 class="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold uppercase"
-                [class.bg-coral/30]="clue.usedWordBlocked"
-                [class.bg-mint/20]="!clue.usedWordBlocked"
+                [ngClass]="{ 'bg-coral/30': clue.usedWordBlocked, 'bg-mint/20': !clue.usedWordBlocked }"
               >
                 {{ clue.usedWord }}
               </span>
@@ -225,8 +223,7 @@
                 <div class="mt-2 flex flex-wrap items-center gap-2">
                   <span
                     class="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-semibold uppercase"
-                    [class.bg-coral/30]="clue.usedWordBlocked"
-                    [class.bg-mint/20]="!clue.usedWordBlocked"
+                    [ngClass]="{ 'bg-coral/30': clue.usedWordBlocked, 'bg-mint/20': !clue.usedWordBlocked }"
                   >
                     {{ clue.usedWord }}
                   </span>
