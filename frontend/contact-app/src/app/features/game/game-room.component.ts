@@ -1,20 +1,21 @@
 import { NgClass } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { GameState, ActiveClue, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
+import { LeaveGameButtonComponent } from '../../shared/leave-game-button.component';
 import { LoadingButtonComponent } from '../../shared/loading-button.component';
 import { SpinnerComponent } from '../../shared/spinner.component';
 
 @Component({
   selector: 'app-game-room',
   standalone: true,
-  imports: [NgClass, FormsModule, TranslateModule, RouterLink, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [NgClass, FormsModule, TranslateModule, LanguageToggleComponent, LeaveGameButtonComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './game-room.component.html',
 })
 export class GameRoomComponent implements OnInit, OnDestroy {

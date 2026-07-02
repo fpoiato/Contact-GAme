@@ -124,5 +124,6 @@
   "MIN_PLAYERS": "Se necesitan al menos 3 jugadores",
   "HOST": "Anfitrión",
   "CLUE_GIVER": "Creador de palabra",
-  "SHOW_SECRET_WORD": "Mantén pulsado para revelar la palabra"
+  "SHOW_SECRET_WORD": "Mantén pulsado para revelar la palabra",
+  "START_FRESH": "Empezar de nuevo"
 }

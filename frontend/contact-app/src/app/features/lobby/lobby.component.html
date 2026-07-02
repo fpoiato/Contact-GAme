@@ -4,7 +4,10 @@
       <h1 class="text-3xl font-black">{{ 'LOBBY_TITLE' | translate }}</h1>
       <p class="text-yellow-bright">{{ 'ROOM' | translate }}: {{ roomCode }}</p>
     </div>
-    <app-language-toggle />
+    <div class="flex items-center gap-2">
+      <app-leave-game-button />
+      <app-language-toggle />
+    </div>
   </div>
 
   <div class="card">

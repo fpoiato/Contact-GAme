@@ -7,6 +7,7 @@ import { GameState, Player } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
+import { LeaveGameButtonComponent } from '../../shared/leave-game-button.component';
 import { LoadingButtonComponent } from '../../shared/loading-button.component';
 import { SpinnerComponent } from '../../shared/spinner.component';
 
@@ -19,7 +20,7 @@ interface RankedPlayer {
 @Component({
   selector: 'app-round-scoreboard',
   standalone: true,
-  imports: [NgClass, TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [NgClass, TranslateModule, LanguageToggleComponent, LeaveGameButtonComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './round-scoreboard.component.html',
 })
 export class RoundScoreboardComponent implements OnInit, OnDestroy {

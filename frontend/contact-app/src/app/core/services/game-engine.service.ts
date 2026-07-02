@@ -297,6 +297,32 @@ export class GameEngineService implements OnDestroy {
     this.clearReconnectGraceTimer();
   }
 
+  leaveGame(): void {
+    this.closeClueInput();
+    this.stopContactCountdown();
+    this.stopClueExpiryTimer();
+    this.clearReconnectGraceTimer();
+    this.reconnectGraceTickSub?.unsubscribe();
+    this.reconnectGraceTickSub = null;
+    if (this.hostRecoveryTimer) {
+      clearTimeout(this.hostRecoveryTimer);
+      this.hostRecoveryTimer = null;
+    }
+    if (this.gameStateRecoveryTimer) {
+      clearTimeout(this.gameStateRecoveryTimer);
+      this.gameStateRecoveryTimer = null;
+    }
+
+    this.stateSubject.next(null);
+    this.overlaySubject.next(null);
+    this.contactCountSubject.next(null);
+    this.reconnectGraceSubject.next(null);
+    this.stateRecoveryFailedSubject.next(false);
+
+    this.ws.disconnect();
+    this.roomService.reset();
+  }
+
   private handleMessage(action: string, payload: unknown): void {
     switch (action) {
       case 'RELAY':

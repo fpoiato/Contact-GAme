@@ -1,9 +1,7 @@
 <div class="relative mx-auto flex min-h-full max-w-md flex-col gap-4 p-4 pb-8">
   <div class="flex items-center justify-between">
     <div>
-      <a routerLink="/" class="text-2xl font-black transition hover:text-yellow-bright active:opacity-80">
-        {{ 'APP_TITLE' | translate }}
-      </a>
+      <h1 class="text-2xl font-black">{{ 'APP_TITLE' | translate }}</h1>
       <p class="text-sm text-yellow-bright">{{ roomCode }} · R{{ state?.currentRound ?? 1 }}</p>
     </div>
     <div class="flex items-center gap-2">
@@ -39,6 +37,7 @@
           </span>
         </button>
       }
+      <app-leave-game-button />
       <app-language-toggle />
     </div>
   </div>
@@ -47,7 +46,7 @@
     <div class="card flex flex-col items-center gap-3 py-10 text-center">
       @if (loadError) {
         <p class="text-coral font-semibold">{{ 'RECONNECT_FAILED' | translate }}</p>
-        <a class="btn-secondary px-6 py-3" routerLink="/">{{ 'BACK' | translate }}</a>
+        <app-leave-game-button [showLabel]="true" labelClass="px-6 py-3" />
       } @else {
         <app-spinner size="lg" />
         <p class="text-white/80">{{ 'LOADING_GAME' | translate }}</p>
@@ -329,6 +328,12 @@
   @if (blockFormOpen) {
     <div class="overlay-form">
       <div class="card w-full max-w-sm flex flex-col gap-3 border-2 border-coral">
+        @if (contactClue; as clue) {
+          <div class="rounded-xl bg-white/10 px-4 py-3 text-left">
+            <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+            <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
+          </div>
+        }
         <p class="font-bold">{{ 'BLOCK_WORD' | translate }}</p>
         @if (contactCount !== null) {
           <p class="text-center text-5xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>

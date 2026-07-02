@@ -124,5 +124,6 @@
   "MIN_PLAYERS": "Mínimo de 3 jogadores",
   "HOST": "Host",
   "CLUE_GIVER": "Criador de Senha",
-  "SHOW_SECRET_WORD": "Segure para revelar a palavra"
+  "SHOW_SECRET_WORD": "Segure para revelar a palavra",
+  "START_FRESH": "Começar de novo"
 }

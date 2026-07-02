@@ -124,5 +124,6 @@
   "MIN_PLAYERS": "Need at least 3 players",
   "HOST": "Host",
   "CLUE_GIVER": "Clue Giver",
-  "SHOW_SECRET_WORD": "Hold to reveal word"
+  "SHOW_SECRET_WORD": "Hold to reveal word",
+  "START_FRESH": "Start fresh"
 }

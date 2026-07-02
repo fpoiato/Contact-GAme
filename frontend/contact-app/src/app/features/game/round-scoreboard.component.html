@@ -4,7 +4,10 @@
       <h1 class="text-3xl font-black">{{ 'SCOREBOARD_TITLE' | translate }}</h1>
       <p class="text-yellow-bright">{{ roomCode }} · {{ 'ROUND_ENDED' | translate: { round: completedRound } }}</p>
     </div>
-    <app-language-toggle />
+    <div class="flex items-center gap-2">
+      <app-leave-game-button />
+      <app-language-toggle />
+    </div>
   </div>
 
   @if (!state) {

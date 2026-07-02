@@ -7,13 +7,14 @@ import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
+import { LeaveGameButtonComponent } from '../../shared/leave-game-button.component';
 import { LoadingButtonComponent } from '../../shared/loading-button.component';
 import { SpinnerComponent } from '../../shared/spinner.component';
 
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [TranslateModule, LanguageToggleComponent, LoadingButtonComponent, SpinnerComponent],
+  imports: [TranslateModule, LanguageToggleComponent, LeaveGameButtonComponent, LoadingButtonComponent, SpinnerComponent],
   templateUrl: './lobby.component.html',
 })
 export class LobbyComponent implements OnInit, OnDestroy {
@@ -92,6 +93,7 @@ export class LobbyComponent implements OnInit, OnDestroy {
 
   leaveAfterRejection(): void {
     this.roomService.clearJoinRejected();
+    this.gameEngine.leaveGame();
     void this.router.navigate(['/']);
   }
 
