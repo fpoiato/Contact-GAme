@@ -317,6 +317,28 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     );
   }
 
+  get secretWordFormOpen(): boolean {
+    return !!this.state && this.state.phase === 'WORD_SETUP' && this.isClueGiver;
+  }
+
+  get contactGuessFormOpen(): boolean {
+    return (
+      !!this.state &&
+      this.state.phase === 'CONTACT_COUNTDOWN' &&
+      this.isContactParticipant &&
+      !this.guessSubmitted
+    );
+  }
+
+  get blockFormOpen(): boolean {
+    return (
+      !!this.state &&
+      this.state.phase === 'CONTACT_COUNTDOWN' &&
+      this.isClueGiver &&
+      !this.blockSubmitted
+    );
+  }
+
   getScore(playerId: string): number {
     return this.state?.scores?.[playerId] ?? 0;
   }

@@ -4,6 +4,76 @@
     <app-language-toggle />
   </div>
 
+  <div class="sticky top-0 z-20 -mx-2 rounded-3xl bg-purple-900/80 px-2 py-2 backdrop-blur-md">
+    <div class="card flex flex-col gap-4">
+      <label class="flex flex-col gap-2">
+        <span class="font-semibold">{{ 'NICKNAME' | translate }}</span>
+        <input
+          class="rounded-xl border-0 bg-white/90 px-4 py-3 text-purple-900"
+          [(ngModel)]="nickname"
+          [placeholder]="'NICKNAME_PLACEHOLDER' | translate"
+          maxlength="20"
+          [disabled]="loading"
+        />
+      </label>
+
+      @if (joinMode) {
+        <label class="flex flex-col gap-2">
+          <span class="font-semibold">{{ 'ROOM_CODE' | translate }}</span>
+          <input
+            class="rounded-xl border-0 bg-white/90 px-4 py-3 uppercase tracking-widest text-purple-900"
+            [(ngModel)]="roomCode"
+            [placeholder]="'ROOM_CODE_PLACEHOLDER' | translate"
+            maxlength="5"
+            [disabled]="loading"
+          />
+        </label>
+      }
+
+      @if (error) {
+        <p class="rounded-xl bg-coral/30 px-4 py-2 text-sm font-semibold">{{ error }}</p>
+      }
+
+      @if (!joinMode) {
+        <app-loading-button
+          extraClass="w-full"
+          [loading]="loading"
+          [disabled]="!nickname.trim()"
+          [showLoadingLabel]="true"
+          (pressed)="createGame()"
+        >
+          {{ 'CREATE_GAME' | translate }}
+        </app-loading-button>
+        <app-loading-button
+          variant="secondary"
+          extraClass="w-full"
+          [disabled]="loading"
+          (pressed)="showJoin()"
+        >
+          {{ 'JOIN_GAME' | translate }}
+        </app-loading-button>
+      } @else {
+        <app-loading-button
+          extraClass="w-full"
+          [loading]="loading"
+          [disabled]="!nickname.trim() || roomCode.trim().length !== 5"
+          [showLoadingLabel]="true"
+          (pressed)="joinGame()"
+        >
+          {{ 'JOIN' | translate }}
+        </app-loading-button>
+        <app-loading-button
+          variant="secondary"
+          extraClass="w-full"
+          [disabled]="loading"
+          (pressed)="cancelJoin()"
+        >
+          {{ 'BACK' | translate }}
+        </app-loading-button>
+      }
+    </div>
+  </div>
+
   <p class="text-lg text-white/80">{{ 'LANDING_TAGLINE' | translate }}</p>
 
   <div class="card flex flex-col gap-3">
@@ -70,74 +140,6 @@
           </ul>
         </div>
       </div>
-    }
-  </div>
-
-  <div class="card flex flex-col gap-4">
-    <label class="flex flex-col gap-2">
-      <span class="font-semibold">{{ 'NICKNAME' | translate }}</span>
-      <input
-        class="rounded-xl border-0 bg-white/90 px-4 py-3 text-purple-900"
-        [(ngModel)]="nickname"
-        [placeholder]="'NICKNAME_PLACEHOLDER' | translate"
-        maxlength="20"
-        [disabled]="loading"
-      />
-    </label>
-
-    @if (joinMode) {
-      <label class="flex flex-col gap-2">
-        <span class="font-semibold">{{ 'ROOM_CODE' | translate }}</span>
-        <input
-          class="rounded-xl border-0 bg-white/90 px-4 py-3 uppercase tracking-widest text-purple-900"
-          [(ngModel)]="roomCode"
-          [placeholder]="'ROOM_CODE_PLACEHOLDER' | translate"
-          maxlength="5"
-          [disabled]="loading"
-        />
-      </label>
-    }
-
-    @if (error) {
-      <p class="rounded-xl bg-coral/30 px-4 py-2 text-sm font-semibold">{{ error }}</p>
-    }
-
-    @if (!joinMode) {
-      <app-loading-button
-        extraClass="w-full"
-        [loading]="loading"
-        [disabled]="!nickname.trim()"
-        [showLoadingLabel]="true"
-        (pressed)="createGame()"
-      >
-        {{ 'CREATE_GAME' | translate }}
-      </app-loading-button>
-      <app-loading-button
-        variant="secondary"
-        extraClass="w-full"
-        [disabled]="loading"
-        (pressed)="showJoin()"
-      >
-        {{ 'JOIN_GAME' | translate }}
-      </app-loading-button>
-    } @else {
-      <app-loading-button
-        extraClass="w-full"
-        [loading]="loading"
-        [disabled]="!nickname.trim() || roomCode.trim().length !== 5"
-        [showLoadingLabel]="true"
-        (pressed)="joinGame()"
-      >
-        {{ 'JOIN' | translate }}
-      </app-loading-button>
-      <app-loading-button
-        variant="secondary"
-        extraClass="w-full"
-        [disabled]="loading"
-        (pressed)="cancelJoin()"
-      >
-        {{ 'BACK' | translate }}
-      </app-loading-button>
     }
   </div>
 </div>

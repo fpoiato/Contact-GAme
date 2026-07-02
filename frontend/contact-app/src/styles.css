@@ -42,3 +42,8 @@ textarea {
 .overlay {
   @apply fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4;
 }
+
+.overlay-form {
+  @apply fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4;
+  padding-top: max(1rem, env(safe-area-inset-top));
+}

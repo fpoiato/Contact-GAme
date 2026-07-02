@@ -75,39 +75,6 @@
       </p>
     </div>
 
-    @if (state.phase === 'WORD_SETUP' && isClueGiver) {
-      <div class="card flex flex-col gap-3">
-        <label class="font-semibold">{{ 'SECRET_WORD' | translate }}</label>
-        <input
-          class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
-          [class.ring-2]="showSecretWordError"
-          [class.ring-coral]="showSecretWordError"
-          [(ngModel)]="secretWordInput"
-          [placeholder]="'SECRET_WORD_HINT' | translate"
-          [maxlength]="secretWordMax"
-          [disabled]="settingWord"
-          (keyup.enter)="setWord()"
-          autocapitalize="characters"
-          autocomplete="off"
-        />
-        @if (showSecretWordError) {
-          <p class="text-sm text-coral">
-            {{ 'SECRET_WORD_INVALID' | translate: { min: secretWordMin, max: secretWordMax } }}
-          </p>
-        } @else {
-          <p class="text-sm text-white/60">{{ 'SECRET_WORD_HINT' | translate }}</p>
-        }
-        <app-loading-button
-          [loading]="settingWord"
-          [disabled]="!secretWordValid"
-          [showLoadingLabel]="true"
-          (pressed)="setWord()"
-        >
-          {{ 'SET_WORD' | translate }}
-        </app-loading-button>
-      </div>
-    }
-
     @if (state.phase === 'WORD_SETUP' && !isClueGiver) {
       <p class="card flex items-center justify-center gap-2 text-center text-white/80">
         <app-spinner size="sm" />
@@ -188,71 +155,18 @@
         </app-loading-button>
       }
 
-      @if (isContactParticipant) {
-        <div class="card flex flex-col gap-2">
-          <label class="font-semibold">{{ 'CONTACT_WORD' | translate }}</label>
-          @if (!guessSubmitted) {
-            <input
-              class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
-              [class.ring-2]="contactWordAlreadyUsed || guessWordError"
-              [class.ring-coral]="contactWordAlreadyUsed || guessWordError"
-              [(ngModel)]="contactGuessInput"
-              [placeholder]="'CONTACT_WORD_PLACEHOLDER' | translate"
-              [disabled]="submittingGuess"
-              (keyup.enter)="submitContactGuess()"
-              (input)="guessWordError = false"
-              autocapitalize="characters"
-              autocomplete="off"
-            />
-            @if (contactWordAlreadyUsed || guessWordError) {
-              <p class="text-sm text-coral">{{ 'WORD_ALREADY_USED' | translate }}</p>
-            }
-            <app-loading-button
-              [loading]="submittingGuess"
-              [disabled]="!contactGuessInput.trim() || contactWordAlreadyUsed"
-              [showLoadingLabel]="true"
-              (pressed)="submitContactGuess()"
-            >
-              {{ 'SUBMIT_WORD' | translate }}
-            </app-loading-button>
-          } @else {
-            <p class="flex items-center justify-center gap-2 text-center font-semibold text-mint">
-              <app-spinner size="sm" />
-              {{ 'WORD_LOCKED' | translate }}
-            </p>
-          }
-        </div>
+      @if (isContactParticipant && guessSubmitted) {
+        <p class="card flex items-center justify-center gap-2 text-center font-semibold text-mint">
+          <app-spinner size="sm" />
+          {{ 'WORD_LOCKED' | translate }}
+        </p>
       }
 
-      @if (isClueGiver) {
-        <div class="card flex flex-col gap-2 border-2 border-coral">
-          <label class="font-semibold">{{ 'BLOCK_WORD' | translate }}</label>
-          @if (!blockSubmitted) {
-            <input
-              class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
-              [(ngModel)]="blockWord"
-              [placeholder]="'BLOCK_PLACEHOLDER' | translate"
-              [disabled]="submittingBlock"
-              (keyup.enter)="submitBlock()"
-              autocapitalize="characters"
-              autocomplete="off"
-            />
-            <app-loading-button
-              variant="danger"
-              [loading]="submittingBlock"
-              [disabled]="!blockWord.trim()"
-              [showLoadingLabel]="true"
-              (pressed)="submitBlock()"
-            >
-              {{ 'BLOCK' | translate }}
-            </app-loading-button>
-          } @else {
-            <p class="flex items-center justify-center gap-2 text-center font-semibold text-coral">
-              <app-spinner size="sm" />
-              {{ 'BLOCK_LOCKED' | translate }}
-            </p>
-          }
-        </div>
+      @if (isClueGiver && blockSubmitted) {
+        <p class="card flex items-center justify-center gap-2 border-2 border-coral text-center font-semibold text-coral">
+          <app-spinner size="sm" />
+          {{ 'BLOCK_LOCKED' | translate }}
+        </p>
       }
     }
 
@@ -324,8 +238,106 @@
     </div>
   }
 
+  @if (secretWordFormOpen) {
+    <div class="overlay-form">
+      <div class="card w-full max-w-sm flex flex-col gap-3">
+        <p class="font-bold">{{ 'SECRET_WORD' | translate }}</p>
+        <input
+          class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+          [class.ring-2]="showSecretWordError"
+          [class.ring-coral]="showSecretWordError"
+          [(ngModel)]="secretWordInput"
+          [placeholder]="'SECRET_WORD_HINT' | translate"
+          [maxlength]="secretWordMax"
+          [disabled]="settingWord"
+          (keyup.enter)="setWord()"
+          autocapitalize="characters"
+          autocomplete="off"
+        />
+        @if (showSecretWordError) {
+          <p class="text-sm text-coral">
+            {{ 'SECRET_WORD_INVALID' | translate: { min: secretWordMin, max: secretWordMax } }}
+          </p>
+        } @else {
+          <p class="text-sm text-white/60">{{ 'SECRET_WORD_HINT' | translate }}</p>
+        }
+        <app-loading-button
+          [loading]="settingWord"
+          [disabled]="!secretWordValid"
+          [showLoadingLabel]="true"
+          (pressed)="setWord()"
+        >
+          {{ 'SET_WORD' | translate }}
+        </app-loading-button>
+      </div>
+    </div>
+  }
+
+  @if (contactGuessFormOpen) {
+    <div class="overlay-form">
+      <div class="card w-full max-w-sm flex flex-col gap-3">
+        <p class="font-bold">{{ 'CONTACT_WORD' | translate }}</p>
+        @if (contactCount !== null) {
+          <p class="text-center text-5xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
+        }
+        <input
+          class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+          [class.ring-2]="contactWordAlreadyUsed || guessWordError"
+          [class.ring-coral]="contactWordAlreadyUsed || guessWordError"
+          [(ngModel)]="contactGuessInput"
+          [placeholder]="'CONTACT_WORD_PLACEHOLDER' | translate"
+          [disabled]="submittingGuess"
+          (keyup.enter)="submitContactGuess()"
+          (input)="guessWordError = false"
+          autocapitalize="characters"
+          autocomplete="off"
+        />
+        @if (contactWordAlreadyUsed || guessWordError) {
+          <p class="text-sm text-coral">{{ 'WORD_ALREADY_USED' | translate }}</p>
+        }
+        <app-loading-button
+          [loading]="submittingGuess"
+          [disabled]="!contactGuessInput.trim() || contactWordAlreadyUsed"
+          [showLoadingLabel]="true"
+          (pressed)="submitContactGuess()"
+        >
+          {{ 'SUBMIT_WORD' | translate }}
+        </app-loading-button>
+      </div>
+    </div>
+  }
+
+  @if (blockFormOpen) {
+    <div class="overlay-form">
+      <div class="card w-full max-w-sm flex flex-col gap-3 border-2 border-coral">
+        <p class="font-bold">{{ 'BLOCK_WORD' | translate }}</p>
+        @if (contactCount !== null) {
+          <p class="text-center text-5xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
+        }
+        <input
+          class="rounded-xl bg-white/90 px-4 py-3 uppercase text-purple-900"
+          [(ngModel)]="blockWord"
+          [placeholder]="'BLOCK_PLACEHOLDER' | translate"
+          [disabled]="submittingBlock"
+          (keyup.enter)="submitBlock()"
+          autocapitalize="characters"
+          autocomplete="off"
+        />
+        <app-loading-button
+          variant="danger"
+          [loading]="submittingBlock"
+          [disabled]="!blockWord.trim()"
+          [showLoadingLabel]="true"
+          (pressed)="submitBlock()"
+        >
+          {{ 'BLOCK' | translate }}
+        </app-loading-button>
+      </div>
+    </div>
+  }
+
   @if (clueInputOpen) {
-    <div class="overlay">
+    <div class="overlay-form">
       <div class="card w-full max-w-sm flex flex-col gap-3">
         <p class="font-bold">{{ 'CREATE_CLUE' | translate }}</p>
         @if (clueSeconds !== null) {
