@@ -99,8 +99,17 @@
         <p class="text-sm uppercase tracking-wide text-white/70">{{ 'USED_WORDS' | translate }}</p>
         <p class="text-sm text-white/80">{{ 'USED_WORDS_HINT' | translate }}</p>
         <div class="flex flex-wrap gap-2">
-          @for (word of usedMatchWords; track word) {
-            <span class="rounded-lg bg-white/15 px-3 py-1 text-sm font-semibold uppercase">{{ word }}</span>
+          @for (entry of usedMatchWords; track entry.word) {
+            <span
+              class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold uppercase"
+              [class.bg-coral/30]="entry.blocked"
+              [class.bg-mint/20]="!entry.blocked"
+            >
+              {{ entry.word }}
+              <span class="text-[10px] font-bold normal-case tracking-wide opacity-80">
+                {{ (entry.blocked ? 'USED_WORD_BLOCKED' : 'USED_WORD_MATCHED') | translate }}
+              </span>
+            </span>
           }
         </div>
       </div>
@@ -123,8 +132,16 @@
             </div>
             <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
             @if (clue.usedWord) {
-              <p class="mt-2 text-sm text-white/70">{{ 'CLUE_WORD_USED' | translate }}</p>
-              <span class="mt-1 inline-block rounded-lg bg-coral/30 px-3 py-1 text-sm font-semibold uppercase">{{ clue.usedWord }}</span>
+              <p class="mt-2 text-sm text-white/70">
+                {{ (clue.usedWordBlocked ? 'CLUE_WORD_BLOCKED' : 'CLUE_WORD_MATCHED') | translate }}
+              </p>
+              <span
+                class="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold uppercase"
+                [class.bg-coral/30]="clue.usedWordBlocked"
+                [class.bg-mint/20]="!clue.usedWordBlocked"
+              >
+                {{ clue.usedWord }}
+              </span>
             }
           </div>
           @if (state.phase === 'CLUE_PHASE' && isGuesser && myId !== clue.authorId && !clue.usedWord) {
@@ -205,7 +222,18 @@
               <p class="text-xs text-white/60">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
               <p class="mt-1 font-semibold">"{{ clue.text }}"</p>
               @if (clue.usedWord) {
-                <span class="mt-2 inline-block rounded-lg bg-coral/30 px-2 py-0.5 text-xs font-semibold uppercase">{{ clue.usedWord }}</span>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <span
+                    class="inline-flex items-center rounded-lg px-2 py-0.5 text-xs font-semibold uppercase"
+                    [class.bg-coral/30]="clue.usedWordBlocked"
+                    [class.bg-mint/20]="!clue.usedWordBlocked"
+                  >
+                    {{ clue.usedWord }}
+                  </span>
+                  <span class="text-[10px] font-bold uppercase tracking-wide text-white/60">
+                    {{ (clue.usedWordBlocked ? 'USED_WORD_BLOCKED' : 'USED_WORD_MATCHED') | translate }}
+                  </span>
+                </div>
               }
             </li>
           }

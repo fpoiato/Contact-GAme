@@ -25,7 +25,13 @@ export interface ActiveClue {
   authorNickname: string;
   text: string;
   usedWord?: string;
+  usedWordBlocked?: boolean;
   expiresAt: number;
+}
+
+export interface UsedMatchWord {
+  word: string;
+  blocked: boolean;
 }
 
 export interface GameState {
@@ -51,7 +57,7 @@ export interface GameState {
   lastBlockWord?: string;
   lastRoundWord?: string;
   scores?: Record<string, number>;
-  usedMatchWords?: string[];
+  usedMatchWords?: UsedMatchWord[];
   awaitingRejoin?: AwaitingRejoin;
 }
 

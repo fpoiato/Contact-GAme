@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
-import { GameState, ActiveClue, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN } from '../../core/models/ws-types';
+import { GameState, ActiveClue, isValidSecretWord, Player, SECRET_WORD_MAX, SECRET_WORD_MIN, UsedMatchWord } from '../../core/models/ws-types';
 import { GameEngineService } from '../../core/services/game-engine.service';
 import { RoomService } from '../../core/services/room.service';
 import { LanguageToggleComponent } from '../../shared/language-toggle.component';
@@ -347,7 +347,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     }
   }
 
-  get usedMatchWords(): string[] {
+  get usedMatchWords(): UsedMatchWord[] {
     return this.gameEngine.getUsedMatchWords();
   }
 
