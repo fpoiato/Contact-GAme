@@ -1,0 +1,187 @@
+# Machine-readable index for AI test agents.
+# Implement tests in order within each priority tier unless dependencies note otherwise.
+
+version: 1
+app_version: "0.1.12"
+base_url_env: CONTACT_BASE_URL  # e.g. http://localhost:4200 or production CloudFront URL
+
+suites:
+  - file: setup.md
+    description: Prerequisites — not executable tests
+
+  - file: 01-lobby-session.md
+    tests:
+      - id: TC-LOBBY-001
+        priority: P0
+        title: Create room and copy invite code
+      - id: TC-LOBBY-002
+        priority: P0
+        title: Join pending until host approves
+      - id: TC-LOBBY-003
+        priority: P0
+        title: Reject player cannot enter game
+      - id: TC-LOBBY-004
+        priority: P0
+        title: Start game requires minimum 3 approved players
+      - id: TC-LOBBY-005
+        priority: P1
+        title: Duplicate nickname join handling
+      - id: TC-LOBBY-006
+        priority: P1
+        title: Deep link join with room query param
+
+  - file: 02-game-core.md
+    tests:
+      - id: TC-CORE-001
+        priority: P0
+        title: Clue Giver sets secret word — others see first letter only
+      - id: TC-CORE-002
+        priority: P0
+        title: Guesser submits clue — appears for all players
+      - id: TC-CORE-003
+        priority: P0
+        title: Clue Giver cannot contact own clue
+      - id: TC-CORE-004
+        priority: P0
+        title: Partial contact match reveals letter and awards 15+15
+      - id: TC-CORE-005
+        priority: P0
+        title: Secret word contact ends round with correct scores
+      - id: TC-CORE-006
+        priority: P1
+        title: Round scoreboard and continue rotates Clue Giver
+      - id: TC-CORE-007
+        priority: P1
+        title: Mid-game approved joiner spectates until next round
+      - id: TC-CORE-008
+        priority: P2
+        title: Invalid secret word rejected in form
+
+  - file: 03-contact-block.md
+    tests:
+      - id: TC-BLOCK-001
+        priority: P0
+        title: Successful block awards +15 only — round continues
+      - id: TC-BLOCK-002
+        priority: P0
+        title: Block on secret-word contact prevents round end
+      - id: TC-BLOCK-003
+        priority: P0
+        title: Block grace — clue giver can block after both submit
+      - id: TC-BLOCK-004
+        priority: P0
+        title: Contacted clue removed from board after resolution
+      - id: TC-BLOCK-005
+        priority: P1
+        title: Used words list shows matched vs blocked badges
+      - id: TC-BLOCK-006
+        priority: P1
+        title: Cannot submit used match word during contact
+      - id: TC-BLOCK-007
+        priority: P1
+        title: Abandon contact returns to clue phase with clue still active
+      - id: TC-BLOCK-008
+        priority: P2
+        title: Failed contact (mismatched words) archives clue
+
+  - file: 04-multi-user-sync.md
+    tests:
+      - id: TC-SYNC-001
+        priority: P0
+        title: All clients show same revealed prefix after partial match
+      - id: TC-SYNC-002
+        priority: P0
+        title: Non-host contact action reaches host and resolves
+      - id: TC-SYNC-003
+        priority: P0
+        title: Secret word never in RELAY for non–Clue Givers
+      - id: TC-SYNC-004
+        priority: P1
+        title: Scores identical on all clients after block
+      - id: TC-SYNC-005
+        priority: P1
+        title: Contact countdown visible on all clients
+      - id: TC-SYNC-006
+        priority: P1
+        title: Game overlays sync (BLOCKED, SUCCESS, WORD GUESSED)
+      - id: TC-SYNC-007
+        priority: P2
+        title: Clue lifetime timer roughly aligned across clients
+
+  - file: 05-reconnect-resilience.md
+    tests:
+      - id: TC-RECON-001
+        priority: P0
+        title: Non-host refresh mid CLUE_PHASE restores game
+      - id: TC-RECON-002
+        priority: P0
+        title: Non-host refresh during CONTACT_COUNTDOWN
+      - id: TC-RECON-003
+        priority: P0
+        title: Player disconnect shows grace overlay — rejoin within 60s
+      - id: TC-RECON-004
+        priority: P0
+        title: Rejoin after refresh preserves nickname and scores
+      - id: TC-RECON-005
+        priority: P1
+        title: Host disconnect promotes new host and recovers state
+      - id: TC-RECON-006
+        priority: P1
+        title: Disconnect grace expires — room returns to lobby
+      - id: TC-RECON-007
+        priority: P1
+        title: Leave game (start fresh) clears session and navigates home
+      - id: TC-RECON-008
+        priority: P2
+        title: Tab backgrounded 30s+ then foreground — WS reconnects
+
+  - file: 06-ui-accidents.md
+    tests:
+      - id: TC-UI-001
+        priority: P1
+        title: Cancel clue popup — no clue published
+      - id: TC-UI-002
+        priority: P1
+        title: Clue timer expires with empty textarea — popup closes
+      - id: TC-UI-003
+        priority: P1
+        title: Double-click Contact — single contact only
+      - id: TC-UI-004
+        priority: P1
+        title: Double-submit contact word — one guess counted
+      - id: TC-UI-005
+        priority: P1
+        title: Close history overlay by backdrop click
+      - id: TC-UI-006
+        priority: P1
+        title: Close scores overlay by backdrop click
+      - id: TC-UI-007
+        priority: P2
+        title: Misclick outside clue form does not dismiss (no backdrop close)
+      - id: TC-UI-008
+        priority: P2
+        title: Rapid open/close history and scores — no stuck overlay
+      - id: TC-UI-009
+        priority: P2
+        title: Submit block then attempt second block — locked state
+      - id: TC-UI-010
+        priority: P2
+        title: Peek secret word hold-to-reveal hides on release
+
+  - file: 07-timers-edge.md
+    tests:
+      - id: TC-TIME-001
+        priority: P1
+        title: Contact countdown timeout with no guesses — clue phase resumes
+      - id: TC-TIME-002
+        priority: P1
+        title: Clue expires on board during CLUE_PHASE
+      - id: TC-TIME-003
+        priority: P1
+        title: Clue expires during active contact cancels contact
+      - id: TC-TIME-004
+        priority: P2
+        title: Both submit early — block grace then resolve without full 30s wait
+      - id: TC-TIME-005
+        priority: P2
+        title: Multiple active clues expire independently
