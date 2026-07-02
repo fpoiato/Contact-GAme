@@ -47,6 +47,7 @@ export class GameRoomComponent implements OnInit, OnDestroy {
   loadError = false;
   scoresOpen = false;
   historyOpen = false;
+  showFullSecretWord = false;
   reconnectGrace: number | null = null;
   pending: Player[] = [];
   approvingIds = new Set<string>();
@@ -77,6 +78,9 @@ export class GameRoomComponent implements OnInit, OnDestroy {
           this.submittingBlock = false;
           this.submittingAbandon = false;
         }
+        if (s?.phase !== this.prevPhase) {
+          this.showFullSecretWord = false;
+        }
         if (this.settingWord && s?.phase !== 'WORD_SETUP') {
           this.settingWord = false;
         }
@@ -96,7 +100,10 @@ export class GameRoomComponent implements OnInit, OnDestroy {
       this.gameEngine.overlay$.subscribe((o) => (this.overlay = o)),
       this.gameEngine.clueInputOpen$.subscribe((o) => {
         this.clueInputOpen = o;
-        if (!o) this.submittingClue = false;
+        if (!o) {
+          this.submittingClue = false;
+          this.clueText = '';
+        }
       }),
       this.gameEngine.clueSeconds$.subscribe((s) => {
         this.clueSeconds = s;
@@ -196,6 +203,34 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     return this.gameEngine.getDisplayPrefix();
   }
 
+  get displayedWord(): string {
+    if (this.showFullSecretWord && this.clueGiverSecretWord) {
+      return this.clueGiverSecretWord;
+    }
+    return this.displayPrefix || '?';
+  }
+
+  get clueGiverSecretWord(): string {
+    return this.gameEngine.getClueGiverSecretWord();
+  }
+
+  get canPeekSecretWord(): boolean {
+    return (
+      this.isClueGiver &&
+      !!this.clueGiverSecretWord &&
+      this.state?.phase !== 'WORD_SETUP' &&
+      this.state?.phase !== 'LOBBY'
+    );
+  }
+
+  revealSecretWord(): void {
+    this.showFullSecretWord = true;
+  }
+
+  hideSecretWord(): void {
+    this.showFullSecretWord = false;
+  }
+
   readonly secretWordMin = SECRET_WORD_MIN;
   readonly secretWordMax = SECRET_WORD_MAX;
 
@@ -225,6 +260,11 @@ export class GameRoomComponent implements OnInit, OnDestroy {
     this.gameEngine.submitClue(this.clueText);
     this.clueText = '';
     this.clearLoadingAfter(() => (this.submittingClue = false));
+  }
+
+  cancelClue(): void {
+    if (this.submittingClue) return;
+    this.gameEngine.closeClueInput();
   }
 
   contact(clueId: string): void {
@@ -327,6 +367,16 @@ export class GameRoomComponent implements OnInit, OnDestroy {
       this.state.phase === 'CONTACT_COUNTDOWN' &&
       this.isContactParticipant &&
       !this.guessSubmitted
+    );
+  }
+
+  get contactClue(): ActiveClue | null {
+    const clueId = this.state?.contactClueId;
+    if (!clueId || !this.state) return null;
+    return (
+      this.state.activeClues?.find((c) => c.id === clueId) ??
+      this.state.expiredClues?.find((c) => c.id === clueId) ??
+      null
     );
   }
 

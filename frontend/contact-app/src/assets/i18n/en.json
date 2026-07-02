@@ -101,6 +101,7 @@
   "SCORES": "Scores",
   "VIEW_SCORES": "View scores",
   "CLOSE": "Close",
+  "CANCEL": "Cancel",
   "PTS": "pts",
   "SCOREBOARD_TITLE": "Round Scoreboard",
   "ROUND_ENDED": "Round {{round}} complete",
@@ -122,5 +123,6 @@
   "ERROR": "Error",
   "MIN_PLAYERS": "Need at least 3 players",
   "HOST": "Host",
-  "CLUE_GIVER": "Clue Giver"
+  "CLUE_GIVER": "Clue Giver",
+  "SHOW_SECRET_WORD": "Hold to reveal word"
 }

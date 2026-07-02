@@ -135,12 +135,18 @@ export class GameEngineService implements OnDestroy {
       if (current === null) return;
       if (current <= 1) {
         this.clueSecondsSubject.next(0);
-        this.clueInputOpenSubject.next(false);
-        this.tickSub?.unsubscribe();
+        this.closeClueInput();
       } else {
         this.clueSecondsSubject.next(current - 1);
       }
     });
+  }
+
+  closeClueInput(): void {
+    this.clueInputOpenSubject.next(false);
+    this.clueSecondsSubject.next(null);
+    this.tickSub?.unsubscribe();
+    this.tickSub = null;
   }
 
   submitClue(text: string): void {
@@ -155,8 +161,7 @@ export class GameEngineService implements OnDestroy {
       const clue = this.buildClue(room.connectionId, room.nickname, trimmed);
       state.activeClues = [...(state.activeClues ?? []), clue];
       state.clueDeadline = undefined;
-      this.clueInputOpenSubject.next(false);
-      this.clueSecondsSubject.next(null);
+      this.closeClueInput();
       this.setStateAndRelay('CLUE_SUBMITTED', state);
     } else {
       this.ws.send('FORWARD_TO_HOST', {
@@ -165,7 +170,7 @@ export class GameEngineService implements OnDestroy {
         authorId: room.connectionId,
         authorNickname: room.nickname,
       }, room.roomCode);
-      this.clueInputOpenSubject.next(false);
+      this.closeClueInput();
     }
   }
 
@@ -1057,8 +1062,13 @@ export class GameEngineService implements OnDestroy {
   getDisplayPrefix(): string {
     const state = this.state;
     if (!state) return '';
-    if (this.isClueGiver()) return state.secretWord || state.revealedPrefix;
     return state.revealedPrefix || (state.secretWord ? state.secretWord[0] : '?');
+  }
+
+  getClueGiverSecretWord(): string {
+    const state = this.state;
+    if (!state || !this.isClueGiver()) return '';
+    return state.secretWord;
   }
 
   private buildClue(authorId: string, authorNickname: string, text: string): ActiveClue {

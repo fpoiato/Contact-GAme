@@ -65,7 +65,20 @@
 
     <div class="card text-center">
       <p class="text-sm uppercase tracking-wide text-white/70">{{ 'REVEALED' | translate }}</p>
-      <p class="text-5xl font-black tracking-widest text-yellow-bright">{{ displayPrefix || '?' }}</p>
+      <p class="text-5xl font-black tracking-widest text-yellow-bright">{{ displayedWord }}</p>
+      @if (canPeekSecretWord) {
+        <button
+          type="button"
+          class="mt-3 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold transition active:bg-yellow-bright active:text-purple-900 select-none touch-none"
+          [attr.aria-label]="'SHOW_SECRET_WORD' | translate"
+          (pointerdown)="revealSecretWord()"
+          (pointerup)="hideSecretWord()"
+          (pointerleave)="hideSecretWord()"
+          (pointercancel)="hideSecretWord()"
+        >
+          {{ 'SHOW_SECRET_WORD' | translate }}
+        </button>
+      }
       <p class="mt-2 text-sm">
         @if (isClueGiver) {
           {{ 'YOUR_ROLE_CLUE_GIVER' | translate }}
@@ -276,6 +289,12 @@
   @if (contactGuessFormOpen) {
     <div class="overlay-form">
       <div class="card w-full max-w-sm flex flex-col gap-3">
+        @if (contactClue; as clue) {
+          <div class="rounded-xl bg-white/10 px-4 py-3 text-left">
+            <p class="text-sm text-mint">{{ 'ACTIVE_CLUE' | translate }} {{ 'BY' | translate }} {{ clue.authorNickname }}</p>
+            <p class="mt-1 text-lg font-semibold">"{{ clue.text }}"</p>
+          </div>
+        }
         <p class="font-bold">{{ 'CONTACT_WORD' | translate }}</p>
         @if (contactCount !== null) {
           <p class="text-center text-5xl font-black text-yellow-bright">{{ contactCount || 'GO!' }}</p>
@@ -349,15 +368,25 @@
           [placeholder]="'CLUE_PLACEHOLDER' | translate"
           [disabled]="submittingClue"
         ></textarea>
-        <app-loading-button
-          extraClass="py-4 text-xl"
-          [loading]="submittingClue"
-          [disabled]="!clueText.trim()"
-          [showLoadingLabel]="true"
-          (pressed)="submitClue()"
-        >
-          {{ 'SUBMIT_CLUE' | translate }}
-        </app-loading-button>
+        <div class="flex flex-col gap-2">
+          <app-loading-button
+            extraClass="py-4 text-xl"
+            [loading]="submittingClue"
+            [disabled]="!clueText.trim()"
+            [showLoadingLabel]="true"
+            (pressed)="submitClue()"
+          >
+            {{ 'SUBMIT_CLUE' | translate }}
+          </app-loading-button>
+          <app-loading-button
+            variant="secondary"
+            extraClass="w-full"
+            [disabled]="submittingClue"
+            (pressed)="cancelClue()"
+          >
+            {{ 'CANCEL' | translate }}
+          </app-loading-button>
+        </div>
       </div>
     </div>
   }

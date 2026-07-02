@@ -101,6 +101,7 @@
   "SCORES": "Puntuación",
   "VIEW_SCORES": "Ver puntuación",
   "CLOSE": "Cerrar",
+  "CANCEL": "Cancelar",
   "PTS": "pts",
   "SCOREBOARD_TITLE": "Marcador de la ronda",
   "ROUND_ENDED": "Ronda {{round}} completada",
@@ -122,5 +123,6 @@
   "ERROR": "Error",
   "MIN_PLAYERS": "Se necesitan al menos 3 jugadores",
   "HOST": "Anfitrión",
-  "CLUE_GIVER": "Creador de palabra"
+  "CLUE_GIVER": "Creador de palabra",
+  "SHOW_SECRET_WORD": "Mantén pulsado para revelar la palabra"
 }
