@@ -24,6 +24,14 @@ import { TranslateService } from '@ngx-translate/core';
       >
         PT
       </button>
+      <button
+        type="button"
+        class="rounded-full px-3 py-1 text-sm font-semibold transition"
+        [ngClass]="currentLang === 'es' ? 'bg-yellow-bright text-purple-900' : 'bg-white/20'"
+        (click)="setLang('es')"
+      >
+        ES
+      </button>
     </div>
   `,
 })
